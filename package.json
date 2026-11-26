@@ -1,0 +1,13 @@
+{
+  "name": "web-test-bench",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome extension for manual web testing in three viewport sizes, with a terminal report for AI agents.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/petrzpav/web-test-bench.git" },
+  "homepage": "https://github.com/petrzpav/web-test-bench",
+  "type": "module",
+  "bin": { "wtb": "tools/wtb.mjs" },
+  "scripts": { "report": "node tools/wtb.mjs" },
+  "dependencies": { "playwright-core": "1.57.0" }
+}
