@@ -351,7 +351,8 @@ table.grid { border-collapse: collapse; width: 100%; font-variant-numeric: tabul
 .metrics h4, .section h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
 .mtable th:not(:first-child), .mtable td:not(:first-child) { text-align: right; }
 .mtable td:first-child { white-space: nowrap; }
-.mtable .help { display: block; color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.mtable .help { display: block; color: var(--ink-3); font-size: 11px; font-weight: 400; white-space: normal; min-width: 14ch; }
+.metrics > div { min-width: 0; overflow-x: auto; }
 .mv { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .mv::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .mv.good::before { background: var(--good); }

@@ -246,7 +246,11 @@ Issues and pull requests are welcome. The extension is plain JavaScript with no 
 - `content/probe.js` runs inside each frame.
 - `tools/wtb.mjs` is the CLI.
 
-`npm test` runs `tools/smoke.mjs`. It tests the demo page and a clean page in both languages and checks that every frame was measured. CI runs it on every push.
+`npm test` runs `tools/smoke.mjs`, and `npm run pack` builds the Chrome Web Store ZIP in `dist/`. It tests the demo page and a clean page in both languages and checks that every frame was measured. CI runs it on every push.
+
+## Privacy
+
+No server, no analytics, nothing leaves your browser. See [PRIVACY.md](PRIVACY.md).
 
 ## License
 
