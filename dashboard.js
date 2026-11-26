@@ -2,24 +2,47 @@
 // Frames talk to us through content/probe.js (window.postMessage) and
 // content/bridge.js (chrome.runtime, gives us their frameId for webRequest).
 
+// ---------------------------------------------------------------- language
+// Czech or English. Chosen in the settings (stored in localStorage so it is known before the
+// first render), by ?lang= (used by the CLI), or else by the browser's language.
+const LANG = (() => {
+  const q = new URLSearchParams(location.search).get('lang');
+  if (q === 'cs' || q === 'en') return q;
+  let s = null;
+  try { s = localStorage.getItem('wtb-lang'); } catch (e) { /* storage blocked */ }
+  if (s === 'cs' || s === 'en') return s;
+  return /^(cs|sk)\b/i.test(navigator.language || '') ? 'cs' : 'en';
+})();
+const T = (cs, en) => (LANG === 'cs' ? cs : en);
+const LOCALE = T('cs-CZ', 'en-US');
+document.documentElement.lang = LANG;
+// Static texts in dashboard.html are English; data-cs* attributes carry the Czech version.
+if (LANG === 'cs') {
+  for (const el of document.querySelectorAll('[data-cs]')) el.textContent = el.dataset.cs;
+  for (const el of document.querySelectorAll('[data-cs-html]')) el.innerHTML = el.dataset.csHtml; // static markup from our own HTML
+  for (const [attr, key] of [['title', 'csTitle'], ['aria-label', 'csAriaLabel'], ['placeholder', 'csPlaceholder']]) {
+    for (const el of document.querySelectorAll(`[data-cs-${attr}]`)) el.setAttribute(attr, el.dataset[key]);
+  }
+}
+
 const VPS = ['mobile', 'tablet', 'desktop'];
-const VP_NAME = { mobile: 'Mobil', tablet: 'Tablet', desktop: 'Desktop' };
+const VP_NAME = { mobile: T('Mobil', 'Mobile'), tablet: 'Tablet', desktop: 'Desktop' };
 const VP_SHORT = { mobile: 'M', tablet: 'T', desktop: 'D' };
 
 const PRESETS = [
-  { id: 'iphone-se', group: 'Mobil', name: 'iPhone SE', w: 375, h: 667 },
-  { id: 'iphone-15', group: 'Mobil', name: 'iPhone 15', w: 393, h: 852 },
-  { id: 'galaxy-s23', group: 'Mobil', name: 'Galaxy S23', w: 360, h: 780 },
-  { id: 'pixel-8', group: 'Mobil', name: 'Pixel 8', w: 412, h: 915 },
+  { id: 'iphone-se', group: VP_NAME.mobile, name: 'iPhone SE', w: 375, h: 667 },
+  { id: 'iphone-15', group: VP_NAME.mobile, name: 'iPhone 15', w: 393, h: 852 },
+  { id: 'galaxy-s23', group: VP_NAME.mobile, name: 'Galaxy S23', w: 360, h: 780 },
+  { id: 'pixel-8', group: VP_NAME.mobile, name: 'Pixel 8', w: 412, h: 915 },
   { id: 'ipad-mini', group: 'Tablet', name: 'iPad mini', w: 768, h: 1024 },
   { id: 'ipad-air', group: 'Tablet', name: 'iPad Air', w: 820, h: 1180 },
-  { id: 'ipad-pro', group: 'Tablet', name: 'iPad Pro 12,9″', w: 1024, h: 1366 },
-  { id: 'laptop', group: 'Desktop', name: 'Notebook', w: 1366, h: 768 },
-  { id: 'laptop-hd', group: 'Desktop', name: 'Notebook HD+', w: 1440, h: 900 },
+  { id: 'ipad-pro', group: 'Tablet', name: T('iPad Pro 12,9″', 'iPad Pro 12.9″'), w: 1024, h: 1366 },
+  { id: 'laptop', group: 'Desktop', name: T('Notebook', 'Laptop'), w: 1366, h: 768 },
+  { id: 'laptop-hd', group: 'Desktop', name: T('Notebook HD+', 'Laptop HD+'), w: 1440, h: 900 },
   { id: 'fullhd', group: 'Desktop', name: 'Full HD', w: 1920, h: 1080 },
 ];
 
-const DEFAULT_CHECKLIST = [
+const CHECKLISTS = { cs: [
   'Hlavní navigace i mobilní menu se otevřou a vedou správně',
   'Na mobilu není vodorovný posun ani useknutý obsah',
   'Formuláře: povinná pole, chybové hlášky, úspěšné odeslání',
@@ -30,7 +53,19 @@ const DEFAULT_CHECKLIST = [
   'Titulek, popis a náhled pro sdílení odpovídají stránce',
   'Neexistující adresa ukáže srozumitelnou stránku 404',
   'Konzole bez chyb a síť bez neúspěšných požadavků',
-];
+], en: [
+  'Main navigation and the mobile menu open and lead to the right pages',
+  'No horizontal scrolling or cut-off content on mobile',
+  'Forms: required fields, error messages, successful submit',
+  'Buttons and links have hover, focus and active states',
+  'Images are sharp, not distorted, and have alt text',
+  'Texts have no typos, untranslated keys or placeholder text',
+  'I can go through the page with the keyboard (Tab) and see the focus',
+  'Title, description and share preview match the page',
+  'A missing address shows a clear 404 page',
+  'Console without errors and network without failed requests',
+] };
+const DEFAULT_CHECKLIST = CHECKLISTS[LANG];
 
 const DEFAULTS = {
   panes: {
@@ -91,14 +126,17 @@ function h(tag, props, ...kids) {
   return el;
 }
 
-const nf0 = new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 0 });
-const nf1 = new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-const nf2 = new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-const nf3 = new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
+const nf0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+const nf3 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 3, minimumFractionDigits: 3 });
 const fmtMs = (v) => v === null || v === undefined ? '–' : v < 1000 ? nf0.format(v) + ' ms' : nf2.format(v / 1000) + ' s';
 const fmtBytes = (v) => !v ? '–' : v < 1024 ? nf0.format(v) + ' B' : v < 1024 * 1024 ? nf0.format(v / 1024) + ' kB' : nf1.format(v / 1024 / 1024) + ' MB';
-const fmtTime = (t) => new Date(t).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-const plural = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
+const fmtTime = (t) => new Date(t).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+// Czech has three forms (1, 2–4, 5+), English two.
+const plural = (n, one, few, many, enOne, enMany) => LANG === 'cs'
+  ? (n === 1 ? one : n >= 2 && n <= 4 ? few : many)
+  : (n === 1 ? enOne : enMany || enOne + 's');
 
 function splitUrl(u) {
   try {
@@ -136,8 +174,8 @@ function toast(text) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
 }
 
-async function copyText(text, msg = 'Zkopírováno do schránky') {
-  try { await navigator.clipboard.writeText(text); toast(msg); } catch (e) { toast('Kopírování selhalo: ' + e.message); }
+async function copyText(text, msg = T('Zkopírováno do schránky', 'Copied to the clipboard')) {
+  try { await navigator.clipboard.writeText(text); toast(msg); } catch (e) { toast(T('Kopírování selhalo: ', 'Copying failed: ') + e.message); }
 }
 
 function download(name, blobOrUrl) {
@@ -230,10 +268,13 @@ window.addEventListener('pageshow', (e) => { if (e.persisted && myTab) installFr
 
 // ---------------------------------------------------------------- network (webRequest)
 
-const NET_TYPES = {
+const NET_TYPES = T({
   main_frame: 'dokument', sub_frame: 'dokument', stylesheet: 'styl', script: 'skript', image: 'obrázek',
   font: 'písmo', xmlhttprequest: 'fetch/XHR', media: 'média', websocket: 'websocket', ping: 'ping', csp_report: 'CSP', object: 'objekt', other: 'jiné',
-};
+}, {
+  main_frame: 'document', sub_frame: 'document', stylesheet: 'style', script: 'script', image: 'image',
+  font: 'font', xmlhttprequest: 'fetch/XHR', media: 'media', websocket: 'websocket', ping: 'ping', csp_report: 'CSP', object: 'object', other: 'other',
+});
 const MAX_NET = 4000;
 
 function netVp(e) {
@@ -241,7 +282,12 @@ function netVp(e) {
   if (frameVp.has(e.parentFrameId)) return frameVp.get(e.parentFrameId);
   return null;
 }
-const isNetProblem = (e) => (!!e.error && !e.aborted) || e.status >= 400;
+// URLs that some frame loaded fine. The three frames request the same files at the same time
+// and share one HTTP cache; Chromium then sometimes fails one copy with ERR_CACHE_MISS (cache
+// entry locked). That is the bench, not the site, when another request got the file.
+const okUrls = new Set();
+const benchArtifact = (e) => e.error === 'net::ERR_CACHE_MISS' && okUrls.has(e.url);
+const isNetProblem = (e) => (!!e.error && !e.aborted && !benchArtifact(e)) || e.status >= 400;
 
 function setupWebRequest() {
   const filter = { urls: ['<all_urls>'], tabId: myTab.id };
@@ -278,6 +324,7 @@ function setupWebRequest() {
     e.end = d.timeStamp;
     e.status = d.statusCode;
     e.cached = d.fromCache;
+    if (d.statusCode < 400) okUrls.add(e.url);
     const len = (d.responseHeaders || []).find((x) => x.name.toLowerCase() === 'content-length');
     if (len) e.size = +len.value;
     if (e.type === 'sub_frame' && frameVp.has(e.frameId)) { rt[frameVp.get(e.frameId)].httpStatus = e.status >= 400 ? e.status : 0; ver.rt++; }
@@ -380,7 +427,7 @@ window.addEventListener('message', (ev) => {
       if (!r.userDoc && r.docRequestAt > r.cmdAt && r.lastInput - r.docRequestAt < 500) r.userDoc = true;
       return;
     case 'auditError':
-      r.auditError = typeof d.message === 'string' ? d.message.slice(0, 300) : 'neznámá chyba';
+      r.auditError = typeof d.message === 'string' ? d.message.slice(0, 300) : T('neznámá chyba', 'unknown error');
       r.auditStale = false;
       break;
     case 'log':
@@ -476,7 +523,7 @@ function propagate(vp) {
   if (now < syncPausedUntil) return;
   if (syncHits.length >= 8) { // backstop: a page that keeps changing its address after one action
     syncPausedUntil = now + 10000;
-    toast('Spojená navigace na 10 s pozastavena: stránka mění adresu příliš často');
+    toast(T('Spojená navigace na 10 s pozastavena: stránka mění adresu příliš často', 'Linked navigation paused for 10 s: the page changes its address too often'));
     // When the pause ends, bring the other frames to wherever the lead frame is then.
     clearTimeout(pauseTimer);
     pauseTimer = setTimeout(() => {
@@ -565,6 +612,7 @@ function logCounts(vp) {
 function clearData() {
   logs.clear();
   net.clear();
+  okUrls.clear();
   linkResults = new Map();
   linkGen++;
   linkRun = null;
@@ -585,8 +633,8 @@ function updateAddress() {
 
 function loadUrl(raw) {
   const url = normalizeUrl(raw);
-  if (!url) { toast('Tohle není platná adresa'); return; }
-  if (!/^https?:/.test(url)) { toast('Panel umí testovat jen stránky na http a https'); return; }
+  if (!url) { toast(T('Tohle není platná adresa', 'This is not a valid address')); return; }
+  if (!/^https?:/.test(url)) { toast(T('Panel umí testovat jen stránky na http a https', 'The bench can only test http and https pages')); return; }
   settings.history = [url, ...settings.history.filter((u) => u !== url)].slice(0, 25);
   saveSettings();
   renderHistory();
@@ -732,8 +780,8 @@ const MIN_PANE = 236;
 function buildPane(vp) {
   const p = settings.panes[vp];
   const e = {};
-  e.wIn = h('input', { type: 'number', min: 200, max: 3840, value: p.w, 'aria-label': `Šířka – ${VP_NAME[vp]}`, title: 'Šířka v CSS pixelech' });
-  e.hIn = h('input', { type: 'number', min: 200, max: 4000, value: p.h, class: 'h', 'aria-label': `Výška – ${VP_NAME[vp]}`, title: 'Výška v CSS pixelech' });
+  e.wIn = h('input', { type: 'number', min: 200, max: 3840, value: p.w, 'aria-label': T(`Šířka – ${VP_NAME[vp]}`, `Width – ${VP_NAME[vp]}`), title: T('Šířka v CSS pixelech', 'Width in CSS pixels') });
+  e.hIn = h('input', { type: 'number', min: 200, max: 4000, value: p.h, class: 'h', 'aria-label': T(`Výška – ${VP_NAME[vp]}`, `Height – ${VP_NAME[vp]}`), title: T('Výška v CSS pixelech', 'Height in CSS pixels') });
   const onSize = () => {
     const w = Math.max(200, Math.min(3840, +e.wIn.value || p.w));
     const hh = Math.max(200, Math.min(4000, +e.hIn.value || p.h));
@@ -745,13 +793,13 @@ function buildPane(vp) {
   for (const inp of [e.wIn, e.hIn]) inp.addEventListener('input', () => { inp.style.width = Math.max(3, String(inp.value).length) + 0.6 + 'ch'; });
   e.hIn.addEventListener('change', onSize);
 
-  e.preset = h('select', { class: 'preset', 'aria-label': `Zařízení – ${VP_NAME[vp]}` });
+  e.preset = h('select', { class: 'preset', 'aria-label': T(`Zařízení – ${VP_NAME[vp]}`, `Device – ${VP_NAME[vp]}`) });
   const groups = {};
   for (const pr of PRESETS) {
     if (!groups[pr.group]) { groups[pr.group] = h('optgroup', { label: pr.group }); e.preset.append(groups[pr.group]); }
     groups[pr.group].append(h('option', { value: pr.id }, `${pr.name} · ${pr.w}×${pr.h}`));
   }
-  e.preset.append(h('option', { value: 'custom' }, 'Vlastní velikost'));
+  e.preset.append(h('option', { value: 'custom' }, T('Vlastní velikost', 'Custom size')));
   e.preset.addEventListener('change', () => {
     const pr = presetOf(e.preset.value);
     if (pr) Object.assign(p, { preset: pr.id, w: pr.w, h: pr.h });
@@ -778,20 +826,21 @@ function buildPane(vp) {
     e.device,
     h('div', { class: 'pane-foot' }, e.flags,
       h('span', { class: 'pane-actions' },
-      btn('rotate', 'Otočit na šířku / na výšku', () => { Object.assign(p, { w: p.h, h: p.w }); saveSettings(); renderStage(); }),
-      btn('reload', 'Načíst znovu jen tento rám', () => reloadFrame(vp)),
-      btn('external', 'Otevřít aktuální adresu v nové záložce', () => rt[vp].url && chrome.tabs.create({ url: rt[vp].url, index: myTab.index + 1 })),
-      btn('camera', 'Uložit snímek tohoto rámu', () => screenshot(e.device, `${VP_NAME[vp].toLowerCase()}-${p.w}x${p.h}`)))),
+      btn('rotate', T('Otočit na šířku / na výšku', 'Rotate to landscape / portrait'), () => { Object.assign(p, { w: p.h, h: p.w }); saveSettings(); renderStage(); }),
+      btn('reload', T('Načíst znovu jen tento rám', 'Reload only this frame'), () => reloadFrame(vp)),
+      btn('external', T('Otevřít aktuální adresu v nové záložce', 'Open the current address in a new tab'), () => rt[vp].url && chrome.tabs.create({ url: rt[vp].url, index: myTab.index + 1 })),
+      btn('camera', T('Uložit snímek tohoto rámu', 'Save a screenshot of this frame'), () => screenshot(e.device, `${vp}-${p.w}x${p.h}`)))),
   );
   els[vp] = e;
 }
 
-const frameName = (vp) => `wt-${vp}${settings.mobileUA && vp !== 'desktop' ? '-ua' : ''}`;
+// The probe reads its options from the frame name: mobile User-Agent and the language of its messages.
+const frameName = (vp) => `wt-${vp}${settings.mobileUA && vp !== 'desktop' ? '-ua' : ''}-${LANG}`;
 
 function makeFrame(vp) {
   const fr = h('iframe', {
     name: frameName(vp),
-    title: `Náhled – ${VP_NAME[vp]}`,
+    title: T(`Náhled – ${VP_NAME[vp]}`, `Preview – ${VP_NAME[vp]}`),
     sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-pointer-lock allow-presentation',
     allow: 'clipboard-write; fullscreen; autoplay; encrypted-media; picture-in-picture; geolocation',
     referrerpolicy: 'strict-origin-when-cross-origin',
@@ -828,9 +877,9 @@ function renderStage() {
   if (!masterUrl) {
     if (!$('.stage-empty', st)) {
       st.replaceChildren(h('div', { class: 'stage-empty' },
-        h('h2', null, 'Zadej adresu stránky nahoře'),
-        h('p', null, 'Stránka se otevře ve třech velikostech vedle sebe. Chyby, síť, rychlost a kontrolu najdeš v panelu dole.'),
-        h('p', { class: 'note' }, 'Tip: tlačítko rozšíření na liště (Alt+Shift+T) otevře panel rovnou s aktuální stránkou.')));
+        h('h2', null, T('Zadej adresu stránky nahoře', 'Enter a page address above')),
+        h('p', null, T('Stránka se otevře ve třech velikostech vedle sebe. Chyby, síť, rychlost a kontrolu najdeš v panelu dole.', 'The page opens at three sizes side by side. Errors, network, speed and the page check are in the panel below.')),
+        h('p', { class: 'note' }, T('Tip: tlačítko rozšíření na liště (Alt+Shift+T) otevře panel rovnou s aktuální stránkou.', 'Tip: the extension button in the toolbar (Alt+Shift+T) opens the bench with the current page.'))));
     }
     return;
   }
@@ -856,7 +905,7 @@ function renderStage() {
     if (document.activeElement !== e.hIn) e.hIn.value = p.h;
     for (const inp of [e.wIn, e.hIn]) inp.style.width = Math.max(3, String(inp.value).length) + 0.6 + 'ch';
     e.preset.value = presetOf(p.preset) ? p.preset : 'custom';
-    e.preset.title = (presetOf(p.preset)?.name || 'Vlastní velikost') + ' – vybrat zařízení';
+    e.preset.title = (presetOf(p.preset)?.name || T('Vlastní velikost', 'Custom size')) + T(' – vybrat zařízení', ' – choose a device');
     e.scale = s;
   }
   // Centre with a whole-pixel offset: flex centring can put frames on half pixels, and a
@@ -867,8 +916,8 @@ function renderStage() {
   if (vis.length) els[vis[0]].root.style.marginLeft = Math.max(0, Math.floor(free / 2)) + 'px';
   // The scale is shown once, in the zoom menu, instead of under every frame.
   const fitOpt = $('#zoom option[value="fit"]');
-  if (fitOpt) fitOpt.textContent = settings.zoom === 'fit' && vis.length ? `Auto ${nf0.format(s * 100)} %` : 'Přizpůsobit';
-  $('#zoom').title = `Měřítko náhledů${settings.zoom === 'fit' ? ': přizpůsobí se šířce okna' : ''}`;
+  if (fitOpt) fitOpt.textContent = settings.zoom === 'fit' && vis.length ? `Auto ${nf0.format(s * 100)} %` : T('Přizpůsobit', 'Fit');
+  $('#zoom').title = T('Měřítko náhledů', 'Preview zoom') + (settings.zoom === 'fit' ? T(': přizpůsobí se šířce okna', ': fits the window width') : '');
   renderPanes();
 }
 
@@ -879,32 +928,32 @@ function renderPanes() {
     const r = rt[vp];
     if (!e || settings.panes[vp].hidden) continue;
     e.loadbar.hidden = !r.loading;
-    e.status.textContent = r.loading ? 'Načítá…' : r.slow ? 'přes 30 s' : r.loadMs !== null ? fmtMs(r.loadMs) : '';
-    e.status.title = r.slow ? 'Stránka se nenačetla do 30 sekund' : r.loadMs !== null ? 'Doba do události load podle Navigation Timing rámu' : '';
+    e.status.textContent = r.loading ? T('Načítá…', 'Loading…') : r.slow ? T('přes 30 s', 'over 30 s') : r.loadMs !== null ? fmtMs(r.loadMs) : '';
+    e.status.title = r.slow ? T('Stránka se nenačetla do 30 sekund', 'The page did not load within 30 seconds') : r.loadMs !== null ? T('Doba do události load podle Navigation Timing rámu', 'Time to the load event, from the frame\'s Navigation Timing') : '';
     const c = logCounts(vp);
     const b = [];
-    if (c.err) b.push(h('button', { type: 'button', class: 'badge err', title: `${c.err} ${plural(c.err, 'chyba', 'chyby', 'chyb')} v konzoli`, onclick: () => openConsoleFor(vp, 'error') }, c.err));
-    if (c.warn) b.push(h('button', { type: 'button', class: 'badge warn', title: `${c.warn} ${plural(c.warn, 'varování', 'varování', 'varování')}`, onclick: () => openConsoleFor(vp, 'warn') }, c.warn));
+    if (c.err) b.push(h('button', { type: 'button', class: 'badge err', title: `${c.err} ${plural(c.err, 'chyba', 'chyby', 'chyb', 'error')} ${T('v konzoli', 'in the console')}`, onclick: () => openConsoleFor(vp, 'error') }, c.err));
+    if (c.warn) b.push(h('button', { type: 'button', class: 'badge warn', title: `${c.warn} ${plural(c.warn, 'varování', 'varování', 'varování', 'warning')}`, onclick: () => openConsoleFor(vp, 'warn') }, c.warn));
     e.badges.replaceChildren(...b);
 
     const foot = [];
-    if (r.error) foot.push(h('span', { class: 'flag' }, 'Nenačteno: ' + r.error));
-    else if (r.httpStatus) foot.push(h('span', { class: 'flag', title: 'Server vrátil pro tento dokument chybový stav' }, 'HTTP ' + r.httpStatus));
+    if (r.error) foot.push(h('span', { class: 'flag' }, T('Nenačteno: ', 'Not loaded: ') + r.error));
+    else if (r.httpStatus) foot.push(h('span', { class: 'flag', title: T('Server vrátil pro tento dokument chybový stav', 'The server returned an error status for this document') }, 'HTTP ' + r.httpStatus));
     else if (!r.loading && r.url && !r.probe && r.loadMs !== null) {
-      foot.push(h('span', { class: 'flag warn', title: 'Do rámu se nedostal měřicí skript. Bývá to chybová stránka prohlížeče, PDF, nebo web zobrazení v rámu odmítl. Zkus „Otevřít v nové záložce“.' }, 'Bez měření – stránka se možná nezobrazila'));
+      foot.push(h('span', { class: 'flag warn', title: T('Do rámu se nedostal měřicí skript. Bývá to chybová stránka prohlížeče, PDF, nebo web zobrazení v rámu odmítl. Zkus „Otevřít v nové záložce“.', 'The measuring script did not get into the frame. This is usually a browser error page, a PDF, or a site that refused to be framed. Try “Open in a new tab”.') }, T('Bez měření – stránka se možná nezobrazila', 'Not measured – the page may not have loaded')));
     }
     const a = r.audit;
     if (a && !r.loading) {
       const n = a.issues.overflow.length;
       const stale = r.auditStale ? ' stale' : '';
-      const staleTitle = r.auditStale ? 'Platí pro předchozí velikost, nová kontrola probíhá' : '';
+      const staleTitle = r.auditStale ? T('Platí pro předchozí velikost, nová kontrola probíhá', 'For the previous size; a new check is running') : '';
       if (a.scrollWidth > a.viewportWidth + 1) {
         foot.push(h('button', {
-          type: 'button', class: 'flag' + stale, title: staleTitle || 'Ukázat prvky, které přesahují šířku obrazovky',
+          type: 'button', class: 'flag' + stale, title: staleTitle || T('Ukázat prvky, které přesahují šířku obrazovky', 'Show the elements wider than the screen'),
           onclick: () => { openAuditIssue('overflow', vp); setOverlay('overflow', true); },
-        }, `Vodorovný posun +${a.scrollWidth - a.viewportWidth} px${n ? ' · ' + n + ' ' + plural(n, 'prvek', 'prvky', 'prvků') : ''}`));
+        }, `${T('Vodorovný posun', 'Horizontal scroll')} +${a.scrollWidth - a.viewportWidth} px${n ? ' · ' + n + ' ' + plural(n, 'prvek', 'prvky', 'prvků', 'element') : ''}`));
       } else {
-        foot.push(h('span', { class: 'flag ok' + stale, title: staleTitle || null }, 'Bez vodorovného posunu'));
+        foot.push(h('span', { class: 'flag ok' + stale, title: staleTitle || null }, T('Bez vodorovného posunu', 'No horizontal scroll')));
       }
     }
     e.flags.replaceChildren(...foot);
@@ -931,7 +980,7 @@ async function screenshot(target, label) {
     const clip = { left: Math.max(0, st.left), top: Math.max(0, st.top), right: Math.min(vw, st.left + els.stage.clientWidth), bottom: Math.min(window.innerHeight, st.top + els.stage.clientHeight) };
     const x = Math.max(clip.left, rect.left), y = Math.max(clip.top, rect.top);
     const w = Math.min(clip.right, rect.right) - x, hgt = Math.min(clip.bottom, rect.bottom) - y;
-    if (w <= 0 || hgt <= 0) { toast('Rám není vidět, posuň plochu'); return; }
+    if (w <= 0 || hgt <= 0) { toast(T('Rám není vidět, posuň plochu', 'The frame is not visible; scroll the bench')); return; }
     const partial = target !== els.stage && (Math.round(w) < Math.round(rect.width) || Math.round(hgt) < Math.round(rect.height));
     // Hide our own floating UI (corner button, toast) for the capture.
     const floating = [$('#dockFab'), $('.toast')].filter((n) => n && !n.hidden);
@@ -948,12 +997,12 @@ async function screenshot(target, label) {
     c.height = Math.round(hgt * k);
     c.getContext('2d').drawImage(img, x * k, y * k, w * k, hgt * k, 0, 0, c.width, c.height);
     const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
-    const host = splitUrl(masterUrl).host || 'stranka';
+    const host = splitUrl(masterUrl).host || 'page';
     const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
     download(`${host}-${label}-${stamp}.png`, blob);
-    toast(partial ? 'Uložena jen viditelná část rámu. Pro celý rám zvětši panel nebo posuň plochu.' : 'Snímek uložen do Stažených souborů');
+    toast(partial ? T('Uložena jen viditelná část rámu. Pro celý rám zvětši panel nebo posuň plochu.', 'Saved only the visible part of the frame. For the whole frame, enlarge the window or scroll the bench.') : T('Snímek uložen do Stažených souborů', 'Screenshot saved to Downloads'));
   } catch (e) {
-    toast('Snímek se nepodařil: ' + e.message);
+    toast(T('Snímek se nepodařil: ', 'Screenshot failed: ') + e.message);
   }
 }
 
@@ -1021,8 +1070,8 @@ function setDockMode(mode) {
   const min = $('#dockMin');
   fab.hidden = mode !== 'hidden';
   min.innerHTML = svg(mode === 'min' ? 'expand' : 'minimize');
-  min.title = mode === 'min' ? 'Rozbalit lištu (D)' : 'Minimalizovat lištu (D)';
-  min.setAttribute('aria-label', mode === 'min' ? 'Rozbalit lištu' : 'Minimalizovat lištu');
+  min.title = mode === 'min' ? T('Rozbalit lištu (D)', 'Expand the panel (D)') : T('Minimalizovat lištu (D)', 'Minimise the panel (D)');
+  min.setAttribute('aria-label', mode === 'min' ? T('Rozbalit lištu', 'Expand the panel') : T('Minimalizovat lištu', 'Minimise the panel'));
   if (mode === 'hidden') fab.focus();
   if (mode === 'open') { const t = TABS[settings.activeTab]; t.lastSig = null; scheduleRender(); }
   if (masterUrl) renderStage();
@@ -1035,7 +1084,7 @@ function renderTabCounts() {
   const fc = $('#fabCount');
   fc.textContent = bad || c.warn || '';
   fc.className = 'fab-count' + (!bad && c.warn ? ' warn' : '');
-  $('#dockFab').title = `Zobrazit lištu s výsledky (D)${bad ? ` – ${c.err} ${plural(c.err, 'chyba', 'chyby', 'chyb')} v konzoli, ${failedReq} ${plural(failedReq, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků')}` : ''}`;
+  $('#dockFab').title = T('Zobrazit lištu s výsledky (D)', 'Show the results panel (D)') + (bad ? ` – ${c.err} ${plural(c.err, 'chyba', 'chyby', 'chyb', 'error')} ${T('v konzoli', 'in the console')}, ${failedReq} ${plural(failedReq, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků', 'failed request')}` : '');
   for (const t of Object.values(TABS)) {
     const c = t.badge ? t.badge() : null;
     t.count.hidden = !c || !c.n;
@@ -1055,12 +1104,12 @@ function vpFilterChips(state, rerender) {
 const con = { levels: { error: true, warn: true, info: true, log: false }, vps: { mobile: true, tablet: true, desktop: true }, text: '', open: new Set() };
 
 TABS.console = {
-  label: 'Konzole',
+  label: T('Konzole', 'Console'),
   sig: () => ver.logs,
   badge() {
     const c = logCounts();
-    return c.err ? { n: c.err, cls: 'bad', title: `${c.err} ${plural(c.err, 'různá chyba', 'různé chyby', 'různých chyb')} v konzoli` }
-      : c.warn ? { n: c.warn, cls: 'warn', title: `${c.warn} ${plural(c.warn, 'různé varování', 'různá varování', 'různých varování')}` } : null;
+    return c.err ? { n: c.err, cls: 'bad', title: `${c.err} ${plural(c.err, 'různá chyba', 'různé chyby', 'různých chyb', 'distinct error')} ${T('v konzoli', 'in the console')}` }
+      : c.warn ? { n: c.warn, cls: 'warn', title: `${c.warn} ${plural(c.warn, 'různé varování', 'různá varování', 'různých varování', 'distinct warning')}` } : null;
   },
   mount(panel) {
     this.levelChips = h('span', { class: 'seg' });
@@ -1068,18 +1117,18 @@ TABS.console = {
     this.bar = h('div', { class: 'toolbar' },
       this.levelChips, this.vpChips,
       h('input', {
-        class: 'field search', type: 'search', placeholder: 'Hledat ve zprávách', 'aria-label': 'Hledat ve zprávách', value: con.text,
+        class: 'field search', type: 'search', placeholder: T('Hledat ve zprávách', 'Search messages'), 'aria-label': T('Hledat ve zprávách', 'Search messages'), value: con.text,
         oninput: (ev) => { con.text = ev.target.value.toLowerCase(); this.update(); },
       }),
       h('span', { class: 'grow' }),
-      h('button', { type: 'button', class: 'btn small', onclick: () => { logs.clear(); con.open.clear(); ver.logs++; this.update(); scheduleRender(); } }, 'Vymazat'));
+      h('button', { type: 'button', class: 'btn small', onclick: () => { logs.clear(); con.open.clear(); ver.logs++; this.update(); scheduleRender(); } }, T('Vymazat', 'Clear')));
     this.list = h('div', { class: 'scroll' });
     panel.append(this.bar, this.list);
   },
   renderBar() {
     const counts = { error: 0, warn: 0, info: 0, log: 0 };
     for (const e of logs.values()) counts[e.level] = (counts[e.level] || 0) + 1;
-    const levelNames = { error: 'Chyby', warn: 'Varování', info: 'Info', log: 'Log' };
+    const levelNames = { error: T('Chyby', 'Errors'), warn: T('Varování', 'Warnings'), info: 'Info', log: 'Log' };
     keepFocus(this.bar, () => {
       this.levelChips.replaceChildren(...Object.keys(levelNames).map((l) => chipToggle(levelNames[l], con.levels[l], () => { con.levels[l] = !con.levels[l]; this.update(); }, { class: 'lvl-' + l, dot: true, n: counts[l] })));
       this.vpChips.replaceChildren(vpFilterChips(con.vps, () => this.update()));
@@ -1094,8 +1143,8 @@ TABS.console = {
       .slice(0, 400);
     if (!rows.length) {
       this.list.replaceChildren(h('div', { class: 'empty' },
-        h('strong', null, logs.size ? 'Filtru nic neodpovídá' : 'Konzole je čistá'),
-        logs.size ? 'Zapni další úrovně nebo velikosti výše.' : masterUrl ? 'Chyby, varování a výpisy ze stránky se objeví tady.' : 'Načti stránku a sleduj, co hlásí.'));
+        h('strong', null, logs.size ? T('Filtru nic neodpovídá', 'Nothing matches the filter') : T('Konzole je čistá', 'The console is clean')),
+        logs.size ? T('Zapni další úrovně nebo velikosti výše.', 'Turn on more levels or sizes above.') : masterUrl ? T('Chyby, varování a výpisy ze stránky se objeví tady.', 'Errors, warnings and logs from the page show up here.') : T('Načti stránku a sleduj, co hlásí.', 'Load a page and watch what it reports.')));
       return;
     }
     const top = this.list.scrollTop;
@@ -1104,7 +1153,8 @@ TABS.console = {
   },
   row(e) {
     const open = con.open.has(e.key);
-    const srcName = { console: 'console', exception: 'výjimka', promise: 'promise', resource: 'načtení zdroje', csp: 'CSP', fetch: 'síť', dialog: 'dialog', bench: 'panel' }[e.source] || e.source;
+    const srcName = T({ console: 'console', exception: 'výjimka', promise: 'promise', resource: 'načtení zdroje', csp: 'CSP', fetch: 'síť', dialog: 'dialog', bench: 'panel' },
+      { console: 'console', exception: 'exception', promise: 'promise', resource: 'resource load', csp: 'CSP', fetch: 'network', dialog: 'dialog', bench: 'bench' })[e.source] || e.source;
     const where = e.where || e.resourceUrl;
     const row = h('div', { class: 'log ' + e.level },
       h('div', { class: 'log-row', role: 'button', tabindex: 0, 'aria-expanded': String(open), 'data-fk': 'log:' + e.key,
@@ -1112,16 +1162,16 @@ TABS.console = {
         onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.currentTarget.click(); } } },
         h('div', { class: 'log-msg' }, e.message),
         h('div', { class: 'log-meta' },
-          e.count > 1 ? h('span', { class: 'times', title: 'Počet výskytů' }, '×' + e.count) : null,
+          e.count > 1 ? h('span', { class: 'times', title: T('Počet výskytů', 'Occurrences') }, '×' + e.count) : null,
           h('span', { class: 'vps' }, ordered().map((v) => vpDot(v, e.vps.has(v)))),
           h('span', null, fmtTime(e.last))),
-        h('div', { class: 'log-sub' }, h('span', { class: 'tag' }, srcName), where ? h('span', { class: 'url' }, where) : null, h('span', { title: e.pageUrl }, 'stránka ', splitUrl(e.pageUrl).rest))));
+        h('div', { class: 'log-sub' }, h('span', { class: 'tag' }, srcName), where ? h('span', { class: 'url' }, where) : null, h('span', { title: e.pageUrl }, T('stránka ', 'page '), splitUrl(e.pageUrl).rest))));
     if (open) {
       row.append(h('div', { class: 'log-detail' },
         e.stack ? h('pre', null, e.stack) : null,
         h('div', { class: 'row' },
-          h('button', { type: 'button', class: 'btn small', html: svg('copy') + 'Kopírovat', onclick: () => copyText(`${e.message}\n${e.stack || where || ''}\nStránka: ${e.pageUrl}\nVelikosti: ${[...e.vps].map((v) => VP_NAME[v]).join(', ')}`) }),
-          h('button', { type: 'button', class: 'btn small', onclick: () => { addNote('bug', `Konzole: ${e.message}`, [...e.vps].join(','), e.pageUrl); toast('Přidáno do poznámek'); } }, 'Přidat do poznámek'))));
+          h('button', { type: 'button', class: 'btn small', html: svg('copy') + T('Kopírovat', 'Copy'), onclick: () => copyText(`${e.message}\n${e.stack || where || ''}\n${T('Stránka', 'Page')}: ${e.pageUrl}\n${T('Velikosti', 'Sizes')}: ${[...e.vps].map((v) => VP_NAME[v]).join(', ')}`) }),
+          h('button', { type: 'button', class: 'btn small', onclick: () => { addNote('bug', `${T('Konzole', 'Console')}: ${e.message}`, [...e.vps].join(','), e.pageUrl); toast(T('Přidáno do poznámek', 'Added to the notes')); } }, T('Přidat do poznámek', 'Add to the notes')))));
     }
     return row;
   },
@@ -1138,7 +1188,7 @@ function openConsoleFor(vp, level) {
 
 const nw = { problemsOnly: true, vps: { mobile: true, tablet: true, desktop: true }, type: '', text: '' };
 
-const netStatus = (e) => e.error ? (e.aborted ? 'zrušeno' : e.error.replace('net::', '')) : e.status === null ? '…' : String(e.status);
+const netStatus = (e) => e.error ? (e.aborted ? T('zrušeno', 'cancelled') : e.error.replace('net::', '')) : e.status === null ? '…' : String(e.status);
 // Same request from several frames is one row with frame dots, like in the console.
 function netGroups(filter) {
   const groups = new Map();
@@ -1156,26 +1206,26 @@ function netGroups(filter) {
 }
 
 TABS.network = {
-  label: 'Síť',
+  label: T('Síť', 'Network'),
   sig: () => ver.net,
   badge() {
     const n = netGroups(isNetProblem).length;
-    return n ? { n, cls: 'bad', title: `${n} ${plural(n, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků')}` } : null;
+    return n ? { n, cls: 'bad', title: `${n} ${plural(n, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků', 'failed request')}` } : null;
   },
   mount(panel) {
     this.bar = h('div', { class: 'toolbar' });
     this.body = h('div', { class: 'scroll' });
     panel.append(this.bar, this.body);
-    const typeSel = h('select', { class: 'field', 'aria-label': 'Typ požadavku', onchange: (ev) => { nw.type = ev.target.value; this.update(); } },
-      h('option', { value: '' }, 'Všechny typy'),
+    const typeSel = h('select', { class: 'field', 'aria-label': T('Typ požadavku', 'Request type'), onchange: (ev) => { nw.type = ev.target.value; this.update(); } },
+      h('option', { value: '' }, T('Všechny typy', 'All types')),
       [...new Set(Object.values(NET_TYPES))].map((t) => h('option', { value: t, selected: nw.type === t }, t)));
-    this.problemChip = chipToggle('Jen problémy', nw.problemsOnly, () => { nw.problemsOnly = !nw.problemsOnly; this.problemChip.setAttribute('aria-pressed', String(nw.problemsOnly)); this.update(); }, { title: 'Jen odpovědi 4xx/5xx a požadavky, které selhaly (bez zrušených)' });
+    this.problemChip = chipToggle(T('Jen problémy', 'Problems only'), nw.problemsOnly, () => { nw.problemsOnly = !nw.problemsOnly; this.problemChip.setAttribute('aria-pressed', String(nw.problemsOnly)); this.update(); }, { title: T('Jen odpovědi 4xx/5xx a požadavky, které selhaly (bez zrušených)', 'Only 4xx/5xx responses and failed requests (not cancelled ones)') });
     this.vpChips = h('span');
     this.summary = h('span', { class: 'note' });
     this.bar.append(this.problemChip, this.vpChips, typeSel,
-      h('input', { class: 'field search', type: 'search', placeholder: 'Filtrovat adresy', 'aria-label': 'Filtrovat adresy', value: nw.text, oninput: (ev) => { nw.text = ev.target.value.toLowerCase(); this.update(); } }),
+      h('input', { class: 'field search', type: 'search', placeholder: T('Filtrovat adresy', 'Filter URLs'), 'aria-label': T('Filtrovat adresy', 'Filter URLs'), value: nw.text, oninput: (ev) => { nw.text = ev.target.value.toLowerCase(); this.update(); } }),
       h('span', { class: 'grow' }), this.summary,
-      h('button', { type: 'button', class: 'btn small', onclick: () => { net.clear(); ver.net++; this.update(); scheduleRender(); } }, 'Vymazat'));
+      h('button', { type: 'button', class: 'btn small', onclick: () => { net.clear(); ver.net++; this.update(); scheduleRender(); } }, T('Vymazat', 'Clear')));
   },
   update() {
     if (!this.body || !this.body.isConnected) return;
@@ -1190,25 +1240,25 @@ TABS.network = {
     }).sort((x, y) => y.last.start - x.last.start);
     const total = net.size;
     const problems = netGroups(isNetProblem).length;
-    this.summary.textContent = `${nf0.format(total)} ${plural(total, 'požadavek', 'požadavky', 'požadavků')}, ${problems} ${plural(problems, 'problém', 'problémy', 'problémů')}`;
+    this.summary.textContent = `${nf0.format(total)} ${plural(total, 'požadavek', 'požadavky', 'požadavků', 'request')}, ${problems} ${plural(problems, 'problém', 'problémy', 'problémů', 'problem')}`;
     if (!rows.length) {
       this.body.replaceChildren(h('div', { class: 'empty' },
-        h('strong', null, total ? (nw.problemsOnly ? 'Žádný neúspěšný požadavek' : 'Filtru nic neodpovídá') : 'Zatím žádné požadavky'),
-        total && nw.problemsOnly ? 'Všechny odpovědi jsou v pořádku. Vypni „Jen problémy“ pro celý seznam.' : 'Požadavky stránek v rámech se zapisují tady.'));
+        h('strong', null, total ? (nw.problemsOnly ? T('Žádný neúspěšný požadavek', 'No failed request') : T('Filtru nic neodpovídá', 'Nothing matches the filter')) : T('Zatím žádné požadavky', 'No requests yet')),
+        total && nw.problemsOnly ? T('Všechny odpovědi jsou v pořádku. Vypni „Jen problémy“ pro celý seznam.', 'All responses are fine. Turn off “Problems only” for the full list.') : T('Požadavky stránek v rámech se zapisují tady.', 'Requests of the pages in the frames are listed here.')));
       return;
     }
     const top = this.body.scrollTop;
     this.body.replaceChildren(h('table', { class: 'grid' },
-      h('thead', null, h('tr', null, h('th', null, 'Stav'), h('th', null, 'Typ'), h('th', null, 'Adresa'), h('th', null, 'Rámy'), h('th', { class: 'num' }, 'Čas'), h('th', { class: 'num' }, 'Velikost'))),
+      h('thead', null, h('tr', null, h('th', null, T('Stav', 'Status')), h('th', null, T('Typ', 'Type')), h('th', null, T('Adresa', 'URL')), h('th', null, T('Rámy', 'Frames')), h('th', { class: 'num' }, T('Čas', 'Time')), h('th', { class: 'num' }, T('Velikost', 'Size')))),
       h('tbody', null, rows.slice(0, 800).map((g) => {
         const e = g.last;
-        const cls = e.error ? (e.aborted ? 'muted' : 'bad') : e.status === null ? 'muted' : e.status >= 400 ? 'bad' : e.status >= 300 ? 'redir' : 'good';
+        const cls = e.error ? (e.aborted || benchArtifact(e) ? 'muted' : 'bad') : e.status === null ? 'muted' : e.status >= 400 ? 'bad' : e.status >= 300 ? 'redir' : 'good';
         const redir = e.redirects.length ? e.redirects.map((r) => `${r.status} → ${r.to}`).join('\n') : '';
         return h('tr', null,
-          h('td', { class: 'st ' + cls, title: redir || null }, netStatus(e), e.redirects.length ? h('span', { class: 'muted' }, ' ↪' + e.redirects.length) : null),
+          h('td', { class: 'st ' + cls, title: redir || (benchArtifact(e) ? T('Jiný rám stejný soubor načetl; souběh v cache prohlížeče, ne chyba webu', 'Another frame loaded the same file; a race in the browser cache, not a site error') : null) }, netStatus(e), e.redirects.length ? h('span', { class: 'muted' }, ' ↪' + e.redirects.length) : null),
           h('td', { class: 'muted' }, NET_TYPES[e.type] || e.type),
           h('td', null, urlCell(e.url, masterUrl)),
-          h('td', null, h('span', { class: 'vps' }, ordered().map((v) => vpDot(v, g.vps.has(v)))), g.count > g.vps.size ? h('span', { class: 'times', title: 'Počet požadavků' }, ' ×' + g.count) : null),
+          h('td', null, h('span', { class: 'vps' }, ordered().map((v) => vpDot(v, g.vps.has(v)))), g.count > g.vps.size ? h('span', { class: 'times', title: T('Počet požadavků', 'Number of requests') }, ' ×' + g.count) : null),
           h('td', { class: 'num' }, e.end ? fmtMs(e.end - e.start) : '…'),
           h('td', { class: 'num muted' }, e.cached ? 'cache' : fmtBytes(e.size)));
       }))));
@@ -1219,21 +1269,21 @@ TABS.network = {
 // ---- Performance
 
 const METRICS = [
-  { key: 'ttfb', label: 'TTFB', help: 'první bajt odpovědi (bez čekání ve frontě panelu)', f: fmtMs, good: 800, poor: 1800 },
-  { key: 'fcp', label: 'FCP', help: 'první vykreslený obsah', f: fmtMs, good: 1800, poor: 3000 },
-  { key: 'lcp', label: 'LCP', help: 'vykreslen největší prvek', f: fmtMs, good: 2500, poor: 4000 },
-  { key: 'cls', label: 'CLS', help: 'posun rozvržení při načítání', f: (v) => nf3.format(v), good: 0.1, poor: 0.25 },
-  { key: 'dcl', label: 'DOMContentLoaded', help: 'HTML zpracováno', f: fmtMs },
-  { key: 'load', label: 'Load', help: 'načteny všechny zdroje', f: fmtMs },
-  { key: 'requests', label: 'Požadavky', help: 'dokument a jeho zdroje', f: (v) => nf0.format(v) },
-  { key: 'transfer', label: 'Přeneseno', help: 'cizí domény bez Timing-Allow-Origin se nezapočítají', f: fmtBytes },
-  { key: 'domNodes', label: 'Prvků v DOM', help: 'Lighthouse varuje nad 800, chyba nad 1 400', f: (v) => nf0.format(v), good: 800, poor: 1400, maxRating: 'warn' },
+  { key: 'ttfb', label: 'TTFB', help: T('první bajt odpovědi (bez čekání ve frontě panelu)', 'first byte of the response (without the bench\'s queue)'), f: fmtMs, good: 800, poor: 1800 },
+  { key: 'fcp', label: 'FCP', help: T('první vykreslený obsah', 'first contentful paint'), f: fmtMs, good: 1800, poor: 3000 },
+  { key: 'lcp', label: 'LCP', help: T('vykreslen největší prvek', 'largest element painted'), f: fmtMs, good: 2500, poor: 4000 },
+  { key: 'cls', label: 'CLS', help: T('posun rozvržení při načítání', 'layout shift while loading'), f: (v) => nf3.format(v), good: 0.1, poor: 0.25 },
+  { key: 'dcl', label: 'DOMContentLoaded', help: T('HTML zpracováno', 'HTML parsed'), f: fmtMs },
+  { key: 'load', label: 'Load', help: T('načteny všechny zdroje', 'all resources loaded'), f: fmtMs },
+  { key: 'requests', label: T('Požadavky', 'Requests'), help: T('dokument a jeho zdroje', 'the document and its resources'), f: (v) => nf0.format(v) },
+  { key: 'transfer', label: T('Přeneseno', 'Transferred'), help: T('cizí domény bez Timing-Allow-Origin se nezapočítají', 'other origins without Timing-Allow-Origin are not counted'), f: fmtBytes },
+  { key: 'domNodes', label: T('Prvků v DOM', 'DOM elements'), help: T('Lighthouse varuje nad 800, chyba nad 1 400', 'Lighthouse warns above 800, errors above 1,400'), f: (v) => nf0.format(v), good: 800, poor: 1400, maxRating: 'warn' },
 ];
 const rate = (m, v) => v === null || v === undefined || m.good === undefined ? '' : v <= m.good ? 'good' : v <= m.poor || m.maxRating === 'warn' ? 'warn' : 'bad';
 
 const pf = { vp: 'desktop' };
 TABS.perf = {
-  label: 'Výkon',
+  label: T('Výkon', 'Performance'),
   sig: () => ver.rt,
   badge() {
     // Same judgement as the report: a value that only reflects the bench's request queue is not red.
@@ -1242,15 +1292,15 @@ TABS.perf = {
     for (const v of R ? Object.values(R.viewports) : []) {
       for (const k of ['ttfb', 'fcp', 'lcp', 'cls']) { const r = v.ratings && v.ratings[k]; if (r === 'bad') worst = 'bad'; else if (r === 'warn' && !worst) worst = 'warn'; }
     }
-    return worst ? { n: worst === 'bad' ? '!' : '•', cls: worst, title: worst === 'bad' ? 'Některá metrika je špatná' : 'Některá metrika je ke zlepšení' } : null;
+    return worst ? { n: worst === 'bad' ? '!' : '•', cls: worst, title: worst === 'bad' ? T('Některá metrika je špatná', 'A metric is poor') : T('Některá metrika je ke zlepšení', 'A metric needs improvement') } : null;
   },
   mount(panel) { this.body = h('div', { class: 'scroll' }); panel.append(this.body); },
   update() {
     if (!this.body || !this.body.isConnected) return;
     const vis = visibleVps();
-    if (!masterUrl) { this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, 'Zatím není co měřit'), 'Načti stránku a metriky se doplní asi 3 sekundy po události load.')); return; }
+    if (!masterUrl) { this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, T('Zatím není co měřit', 'Nothing to measure yet')), T('Načti stránku a metriky se doplní asi 3 sekundy po události load.', 'Load a page; the metrics appear about 3 seconds after its load event.'))); return; }
     if (!vis.includes(pf.vp)) pf.vp = vis[vis.length - 1];
-    const head = h('tr', null, h('th', null, 'Metrika'), vis.map((vp) => h('th', { class: `th-vp vp-${vp}` }, VP_NAME[vp], rt[vp].isolated ? h('span', { class: 'help' }, 'samostatně') : null)));
+    const head = h('tr', null, h('th', null, T('Metrika', 'Metric')), vis.map((vp) => h('th', { class: `th-vp vp-${vp}` }, VP_NAME[vp], rt[vp].isolated ? h('span', { class: 'help' }, T('samostatně', 'alone')) : null)));
     const R = cachedReport();
     const body = METRICS.map((m) => h('tr', null,
       h('td', null, m.label, h('span', { class: 'help' }, m.help)),
@@ -1258,45 +1308,45 @@ TABS.perf = {
         const p = rt[vp].perf;
         const v = p ? p[m.key] : null;
         const missing = v === null || v === undefined;
-        const tip = m.key === 'lcp' ? (missing ? 'Prohlížeč LCP pro tento rám nenahlásil (stává se u malých stránek nebo když se obsah vykreslí ještě před sledováním).' : p.lcpEl ? 'Prvek: ' + p.lcpEl : null) : null;
+        const tip = m.key === 'lcp' ? (missing ? T('Prohlížeč LCP pro tento rám nenahlásil (stává se u malých stránek nebo když se obsah vykreslí ještě před sledováním).', 'The browser reported no LCP for this frame (happens with small pages or content painted before observing started).') : p.lcpEl ? T('Prvek: ', 'Element: ') + p.lcpEl : null) : null;
         const rv = R && R.viewports[vp];
         const judged = rv && rv.ratings && m.key in rv.ratings ? rv.ratings[m.key] || '' : rate(m, v);
         const queue = rv && rv.queueLimited && rv.queueLimited.includes(m.key);
-        return h('td', null, p ? h('span', { class: 'mv ' + judged, title: queue ? 'Stejná věc byla v jiném rámu rychlejší; rozdíl je nejspíš čekání ve frontě panelu, hodnoceno podle něj.' : tip }, missing ? '–' : m.f(v), queue ? h('span', { class: 'muted' }, ' (fronta)') : null) : h('span', { class: 'muted' }, rt[vp].loading ? 'měří se…' : '–'));
+        return h('td', null, p ? h('span', { class: 'mv ' + judged, title: queue ? T('Stejná věc byla v jiném rámu rychlejší; rozdíl je nejspíš čekání ve frontě panelu, hodnoceno podle něj.', 'The same thing was faster in another frame; the difference is most likely the bench\'s request queue, so it is rated by that frame.') : tip }, missing ? '–' : m.f(v), queue ? h('span', { class: 'muted' }, T(' (fronta)', ' (queue)')) : null) : h('span', { class: 'muted' }, rt[vp].loading ? T('měří se…', 'measuring…') : '–'));
       })));
-    const actions = h('tr', null, h('td', null, h('span', { class: 'muted' }, 'Znovu bez ostatních rámů')),
-      vis.map((vp) => h('td', null, h('button', { type: 'button', class: 'btn small', disabled: !rt[vp].url || rt[vp].loading, onclick: () => reloadFrame(vp, true), title: 'Načte jen tento rám, ostatní nesoutěží o síť. Pozor: zdroje už mohou být v cache.' }, 'Změřit znovu'))));
+    const actions = h('tr', null, h('td', null, h('span', { class: 'muted' }, T('Znovu bez ostatních rámů', 'Again without the other frames'))),
+      vis.map((vp) => h('td', null, h('button', { type: 'button', class: 'btn small', disabled: !rt[vp].url || rt[vp].loading, onclick: () => reloadFrame(vp, true), title: T('Načte jen tento rám, ostatní nesoutěží o síť. Pozor: zdroje už mohou být v cache.', 'Loads only this frame, so the others do not compete for the network. Note: resources may already be cached.') }, T('Změřit znovu', 'Measure again')))));
 
     const p = rt[pf.vp] && rt[pf.vp].perf;
     const resTable = (title, list, valueFn) => h('div', { class: 'section' }, h('h4', null, title),
-      list && list.length ? h('table', { class: 'grid' }, h('tbody', null, list.map((r) => h('tr', null, h('td', null, urlCell(r.url, masterUrl)), h('td', { class: 'muted' }, r.type), h('td', { class: 'num' }, valueFn(r)))))) : h('p', { class: 'note' }, p ? 'Žádné zdroje.' : 'Čeká se na měření.'));
+      list && list.length ? h('table', { class: 'grid' }, h('tbody', null, list.map((r) => h('tr', null, h('td', null, urlCell(r.url, masterUrl)), h('td', { class: 'muted' }, r.type), h('td', { class: 'num' }, valueFn(r)))))) : h('p', { class: 'note' }, p ? T('Žádné zdroje.', 'No resources.') : T('Čeká se na měření.', 'Waiting for the measurement.')));
 
     this.body.replaceChildren(h('div', { class: 'metrics' },
       h('div', null,
         h('table', { class: 'grid mtable' }, h('thead', null, head), h('tbody', null, body, actions)),
-        h('p', { class: 'note', style: { margin: '8px 0 0' } }, 'Barvy podle hranic Core Web Vitals. Rámy se načítají současně a prohlížeč posílá stejné požadavky postupně; čekání dokumentu ve frontě je odečtené, u přesměrování a zdrojů ne. Přesná čísla dá „Změřit znovu“, které načte jen jeden rám.')),
+        h('p', { class: 'note', style: { margin: '8px 0 0' } }, T('Barvy podle hranic Core Web Vitals. Rámy se načítají současně a prohlížeč posílá stejné požadavky postupně; čekání dokumentu ve frontě je odečtené, u přesměrování a zdrojů ne. Přesná čísla dá „Změřit znovu“, které načte jen jeden rám.', 'Colours follow the Core Web Vitals thresholds. The frames load at the same time and the browser sends identical requests one after another; the document\'s queueing is subtracted, that of redirects and resources is not. “Measure again” loads a single frame for exact numbers.'))),
       h('div', null,
-        h('div', { class: 'row', style: { marginBottom: '10px' } }, h('span', { class: 'seg-label' }, 'Zdroje pro'),
+        h('div', { class: 'row', style: { marginBottom: '10px' } }, h('span', { class: 'seg-label' }, T('Zdroje pro', 'Resources for')),
           vis.map((vp) => chipToggle(VP_NAME[vp], pf.vp === vp, () => { pf.vp = vp; this.update(); }, { class: 'vp-' + vp, dot: true }))),
-        resTable('Nejpomalejší zdroje', p && p.slowest, (r) => fmtMs(r.duration)),
-        resTable('Největší zdroje', p && p.largest.filter((r) => r.size), (r) => fmtBytes(r.size)))));
+        resTable(T('Nejpomalejší zdroje', 'Slowest resources'), p && p.slowest, (r) => fmtMs(r.duration)),
+        resTable(T('Největší zdroje', 'Largest resources'), p && p.largest.filter((r) => r.size), (r) => fmtBytes(r.size)))));
   },
 };
 
 // ---- Page check
 
 const ISSUES = [
-  { key: 'overflow', label: 'Vodorovný posun', help: 'prvky přesahují šířku obrazovky', sev: 'bad' },
-  { key: 'broken', label: 'Nenačtené obrázky', sev: 'bad' },
-  { key: 'mixed', label: 'Smíšený obsah', help: 'http zdroje na https stránce', sev: 'bad' },
-  { key: 'smallTargets', label: 'Malé dotykové cíle', help: 'odkazy a tlačítka pod 24 × 24 px', sev: 'warn' },
-  { key: 'tinyText', label: 'Drobný text', help: 'písmo menší než 12 px', sev: 'warn' },
-  { key: 'oversized', label: 'Zbytečně velké obrázky', help: 'zdroj víc než 2,5× širší než zobrazení', sev: 'warn' },
-  { key: 'missingAlt', label: 'Obrázky bez alt', sev: 'warn' },
-  { key: 'unlabeled', label: 'Pole formuláře bez popisku', sev: 'warn' },
-  { key: 'nameless', label: 'Odkazy a tlačítka bez textu', sev: 'warn' },
-  { key: 'dupIds', label: 'Duplicitní id', sev: 'warn' },
-  { key: 'badHref', label: 'Odkazy na # nebo javascript:', sev: 'info' },
+  { key: 'overflow', label: T('Vodorovný posun', 'Horizontal scroll'), help: T('prvky přesahují šířku obrazovky', 'elements wider than the screen'), sev: 'bad' },
+  { key: 'broken', label: T('Nenačtené obrázky', 'Broken images'), sev: 'bad' },
+  { key: 'mixed', label: T('Smíšený obsah', 'Mixed content'), help: T('http zdroje na https stránce', 'http resources on an https page'), sev: 'bad' },
+  { key: 'smallTargets', label: T('Malé dotykové cíle', 'Small tap targets'), help: T('odkazy a tlačítka pod 24 × 24 px', 'links and buttons under 24 × 24 px'), sev: 'warn' },
+  { key: 'tinyText', label: T('Drobný text', 'Tiny text'), help: T('písmo menší než 12 px', 'font smaller than 12 px'), sev: 'warn' },
+  { key: 'oversized', label: T('Zbytečně velké obrázky', 'Oversized images'), help: T('zdroj víc než 2,5× širší než zobrazení', 'source more than 2.5× wider than displayed'), sev: 'warn' },
+  { key: 'missingAlt', label: T('Obrázky bez alt', 'Images without alt'), sev: 'warn' },
+  { key: 'unlabeled', label: T('Pole formuláře bez popisku', 'Form fields without a label'), sev: 'warn' },
+  { key: 'nameless', label: T('Odkazy a tlačítka bez textu', 'Links and buttons without text'), sev: 'warn' },
+  { key: 'dupIds', label: T('Duplicitní id', 'Duplicate ids'), sev: 'warn' },
+  { key: 'badHref', label: T('Odkazy na # nebo javascript:', 'Links to # or javascript:'), sev: 'info' },
 ];
 const au = { issue: null, vp: null };
 
@@ -1304,46 +1354,48 @@ function openAuditIssue(issue, vp) { au.issue = issue; au.vp = vp; selectTab('au
 
 function pageChecks(pg) {
   const rows = [];
-  const add = (k, v, status, hint) => rows.push({ k, v, status, hint });
+  // id is stable (code and the JSON report use it), k is the label shown to people.
+  const add = (id, k, v, status, hint) => rows.push({ id, k, v, status, hint });
   const len = (s) => (s || '').length;
-  add('Titulek', pg.title || '—', !pg.title ? 'bad' : len(pg.title) > 60 || len(pg.title) < 10 ? 'warn' : 'good',
-    !pg.title ? 'Chybí <title>.' : `${len(pg.title)} znaků${len(pg.title) > 60 ? ', ve výsledcích hledání se zkrátí (doporučeno do 60)' : len(pg.title) < 10 ? ', hodně krátký' : ''}`);
-  add('Popis', pg.description || '—', !pg.description ? 'warn' : len(pg.description) > 160 || len(pg.description) < 50 ? 'warn' : 'good',
-    !pg.description ? 'Chybí meta description.' : `${len(pg.description)} znaků${len(pg.description) > 160 ? ', doporučeno do 160' : len(pg.description) < 50 ? ', doporučeno aspoň 50' : ''}`);
-  add('Nadpis H1', pg.h1 + '×', pg.h1 === 1 ? 'good' : 'warn', pg.h1 === 0 ? 'Stránka nemá H1.' : pg.h1 > 1 ? 'Víc H1 na stránce.' : '');
-  add('Jazyk', pg.lang || '—', pg.lang ? 'good' : 'warn', pg.lang ? '' : 'Chybí atribut lang na <html>.');
-  add('Viewport', pg.viewport || '—', pg.viewport ? 'good' : 'bad', pg.viewport ? '' : 'Bez meta viewport se stránka na mobilu zobrazí zmenšená.');
-  add('Robots', pg.robots || 'neuvedeno', /noindex/i.test(pg.robots || '') ? 'bad' : 'good', /noindex/i.test(pg.robots || '') ? 'Stránka zakazuje indexaci. Na produkci zkontroluj, že je to záměr.' : '');
-  add('Kanonická URL', pg.canonical || '—', pg.canonical ? 'good' : 'warn', pg.canonical ? '' : 'Chybí <link rel="canonical">.');
-  add('Sdílení (OG)', pg.ogTitle || '—', pg.ogTitle && pg.ogImage ? 'good' : 'warn', !pg.ogTitle ? 'Chybí og:title.' : !pg.ogImage ? 'Chybí og:image.' : '');
-  add('Favicon', pg.favicon ? 'ano' : '—', pg.favicon ? 'good' : 'warn', pg.favicon ? '' : 'Chybí <link rel="icon">, prohlížeč zkusí /favicon.ico.');
-  add('Strukturovaná data', pg.jsonLd ? `${pg.jsonLd}× JSON-LD` : 'žádná', pg.jsonLd ? 'good' : '', '');
-  add('Kódování', pg.charset, /utf-8/i.test(pg.charset) ? 'good' : 'warn', '');
+  const chars = (n) => `${n} ${T('znaků', 'characters')}`;
+  add('title', T('Titulek', 'Title'), pg.title || '—', !pg.title ? 'bad' : len(pg.title) > 60 || len(pg.title) < 10 ? 'warn' : 'good',
+    !pg.title ? T('Chybí <title>.', 'Missing <title>.') : chars(len(pg.title)) + (len(pg.title) > 60 ? T(', ve výsledcích hledání se zkrátí (doporučeno do 60)', ', cut off in search results (60 at most recommended)') : len(pg.title) < 10 ? T(', hodně krátký', ', very short') : ''));
+  add('description', T('Popis', 'Description'), pg.description || '—', !pg.description ? 'warn' : len(pg.description) > 160 || len(pg.description) < 50 ? 'warn' : 'good',
+    !pg.description ? T('Chybí meta description.', 'Missing meta description.') : chars(len(pg.description)) + (len(pg.description) > 160 ? T(', doporučeno do 160', ', 160 at most recommended') : len(pg.description) < 50 ? T(', doporučeno aspoň 50', ', at least 50 recommended') : ''));
+  add('h1', T('Nadpis H1', 'H1 heading'), pg.h1 + '×', pg.h1 === 1 ? 'good' : 'warn', pg.h1 === 0 ? T('Stránka nemá H1.', 'The page has no H1.') : pg.h1 > 1 ? T('Víc H1 na stránce.', 'More than one H1.') : '');
+  add('lang', T('Jazyk', 'Language'), pg.lang || '—', pg.lang ? 'good' : 'warn', pg.lang ? '' : T('Chybí atribut lang na <html>.', 'Missing lang attribute on <html>.'));
+  add('viewport', 'Viewport', pg.viewport || '—', pg.viewport ? 'good' : 'bad', pg.viewport ? '' : T('Bez meta viewport se stránka na mobilu zobrazí zmenšená.', 'Without a meta viewport the page shows zoomed out on phones.'));
+  add('robots', 'Robots', pg.robots || T('neuvedeno', 'not set'), /noindex/i.test(pg.robots || '') ? 'bad' : 'good', /noindex/i.test(pg.robots || '') ? T('Stránka zakazuje indexaci. Na produkci zkontroluj, že je to záměr.', 'The page forbids indexing. On production, check that this is intended.') : '');
+  add('canonical', T('Kanonická URL', 'Canonical URL'), pg.canonical || '—', pg.canonical ? 'good' : 'warn', pg.canonical ? '' : T('Chybí <link rel="canonical">.', 'Missing <link rel="canonical">.'));
+  add('og', T('Sdílení (OG)', 'Sharing (OG)'), pg.ogTitle || '—', pg.ogTitle && pg.ogImage ? 'good' : 'warn', !pg.ogTitle ? T('Chybí og:title.', 'Missing og:title.') : !pg.ogImage ? T('Chybí og:image.', 'Missing og:image.') : '');
+  add('favicon', 'Favicon', pg.favicon ? T('ano', 'yes') : '—', pg.favicon ? 'good' : 'warn', pg.favicon ? '' : T('Chybí <link rel="icon">, prohlížeč zkusí /favicon.ico.', 'Missing <link rel="icon">; the browser will try /favicon.ico.'));
+  add('structuredData', T('Strukturovaná data', 'Structured data'), pg.jsonLd ? `${pg.jsonLd}× JSON-LD` : T('žádná', 'none'), pg.jsonLd ? 'good' : '', '');
+  add('charset', T('Kódování', 'Charset'), pg.charset, /utf-8/i.test(pg.charset) ? 'good' : 'warn', '');
   return rows;
 }
 
 TABS.audit = {
-  label: 'Kontrola',
+  label: T('Kontrola', 'Page check'),
   sig: () => ver.rt,
   badge() {
     const found = ISSUES.filter((is) => is.sev !== 'info' && visibleVps().some((vp) => rt[vp].audit && rt[vp].audit.issues[is.key].length));
     const n = found.length;
     if (!n) return null;
-    return { n, cls: found.some((is) => is.sev === 'bad') ? 'bad' : 'warn', title: `${n} ${plural(n, 'druh problému', 'druhy problémů', 'druhů problémů')} aspoň v jedné velikosti` };
+    return { n, cls: found.some((is) => is.sev === 'bad') ? 'bad' : 'warn', title: `${n} ${plural(n, 'druh problému', 'druhy problémů', 'druhů problémů', 'kind of problem', 'kinds of problems')} ${T('aspoň v jedné velikosti', 'in at least one size')}` };
   },
   mount(panel) {
     this.body = h('div', { class: 'scroll' });
     panel.append(h('div', { class: 'toolbar' },
-      h('span', { class: 'note' }, 'Kontrola proběhne sama po načtení. Klikni na číslo pro seznam prvků, na prvek pro jeho zvýraznění v rámu.'),
+      h('span', { class: 'note' }, T('Kontrola proběhne sama po načtení. Klikni na číslo pro seznam prvků, na prvek pro jeho zvýraznění v rámu.', 'The check runs by itself after loading. Click a number for the list of elements, and an element to highlight it in the frame.')),
       h('span', { class: 'grow' }),
-      h('button', { type: 'button', class: 'btn small', onclick: () => { for (const vp of visibleVps()) postCmd(vp, 'audit'); toast('Kontroluji znovu'); } }, 'Zkontrolovat znovu')), this.body);
+      h('button', { type: 'button', class: 'btn small', onclick: () => { for (const vp of visibleVps()) postCmd(vp, 'audit'); toast(T('Kontroluji znovu', 'Checking again')); } }, T('Zkontrolovat znovu', 'Check again'))), this.body);
   },
   update() {
     if (!this.body || !this.body.isConnected) return;
     const vis = visibleVps();
     const src = ['desktop', 'tablet', 'mobile'].find((vp) => vis.includes(vp) && rt[vp].audit);
     if (!src) {
-      this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, masterUrl ? 'Kontrola ještě neproběhla' : 'Není co kontrolovat'), masterUrl ? 'Výsledky se objeví pár sekund po načtení stránky.' : 'Načti stránku nahoře.'));
+      this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, masterUrl ? T('Kontrola ještě neproběhla', 'The check has not run yet') : T('Není co kontrolovat', 'Nothing to check')), masterUrl ? T('Výsledky se objeví pár sekund po načtení stránky.', 'Results appear a few seconds after the page loads.') : T('Načti stránku nahoře.', 'Load a page above.')));
       return;
     }
     const a = rt[src].audit;
@@ -1351,8 +1403,8 @@ TABS.audit = {
 
     const kv = h('div', { class: 'kv' });
     for (const r of pageChecks(pg)) {
-      const v = h('div', { class: 'v' }, r.k === 'Favicon' && pg.favicon ? h('img', { class: 'fav', src: pg.favicon, alt: '' }) : null, r.v, r.hint ? h('span', { class: 'hint' }, r.hint) : null);
-      if (r.k === 'Sdílení (OG)' && pg.ogImage) v.append(h('img', { class: 'og-img', src: pg.ogImage, alt: 'og:image' }));
+      const v = h('div', { class: 'v' }, r.id === 'favicon' && pg.favicon ? h('img', { class: 'fav', src: pg.favicon, alt: '' }) : null, r.v, r.hint ? h('span', { class: 'hint' }, r.hint) : null);
+      if (r.id === 'og' && pg.ogImage) v.append(h('img', { class: 'og-img', src: pg.ogImage, alt: 'og:image' }));
       kv.append(h('div', { class: 'k ' + r.status }, r.k), v);
     }
 
@@ -1377,10 +1429,10 @@ TABS.audit = {
       detail = h('div', { class: 'section' },
         h('h4', null, `${is.label} – ${VP_NAME[au.vp]}`),
         list.length ? h('ul', { class: 'detail-list' }, list.map((it) => h('li', {
-          tabindex: 0, title: 'Zvýraznit v rámu',
+          tabindex: 0, title: T('Zvýraznit v rámu', 'Highlight in the frame'),
           onclick: () => postCmd(au.vp, 'highlight', { ref: it.ref }),
           onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); postCmd(au.vp, 'highlight', { ref: it.ref }); } },
-        }, h('span', null, h('code', null, it.path || it.desc), it.text ? h('span', { class: 'muted' }, ` „${it.text}“`) : null), h('span', { class: 'nt' }, it.note)))) : h('p', { class: 'note' }, 'Nic k zobrazení.'));
+        }, h('span', null, h('code', null, it.path || it.desc), it.text ? h('span', { class: 'muted' }, ' ' + quote(it.text)) : null), h('span', { class: 'nt' }, it.note)))) : h('p', { class: 'note' }, T('Nic k zobrazení.', 'Nothing to show.')));
     }
 
     let prev = 0;
@@ -1390,21 +1442,21 @@ TABS.audit = {
       const go = () => postCmd(src, 'highlight', { ref: hd.ref });
       return h('li', {
         class: (skip ? 'skip ' : '') + (hd.hidden ? 'hid' : ''), style: { paddingLeft: (hd.level - 1) * 14 + 'px' }, tabindex: 0,
-        title: skip ? 'Přeskočená úroveň nadpisu' : hd.hidden ? 'Skrytý nadpis' : 'Zvýraznit v rámu',
+        title: skip ? T('Přeskočená úroveň nadpisu', 'Skipped heading level') : hd.hidden ? T('Skrytý nadpis', 'Hidden heading') : T('Zvýraznit v rámu', 'Highlight in the frame'),
         onclick: go, onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } },
       },
-        h('span', { class: 'lv' }, 'H' + hd.level), hd.text || h('em', { class: 'muted' }, '(prázdný)'));
-    })) : h('p', { class: 'note' }, 'Stránka nemá žádné nadpisy.');
+        h('span', { class: 'lv' }, 'H' + hd.level), hd.text || h('em', { class: 'muted' }, T('(prázdný)', '(empty)')));
+    })) : h('p', { class: 'note' }, T('Stránka nemá žádné nadpisy.', 'The page has no headings.'));
 
     const top = this.body.scrollTop;
     this.body.replaceChildren(h('div', { class: 'audit' },
       h('div', null,
-        h('div', { class: 'section' }, h('h4', null, 'Stránka (' + VP_NAME[src] + ')'), kv),
-        h('div', { class: 'section' }, h('h4', null, 'Osnova nadpisů'), outline)),
+        h('div', { class: 'section' }, h('h4', null, T('Stránka', 'Page') + ' (' + VP_NAME[src] + ')'), kv),
+        h('div', { class: 'section' }, h('h4', null, T('Osnova nadpisů', 'Heading outline')), outline)),
       h('div', null,
-        h('div', { class: 'section' }, h('h4', null, 'Podle velikosti'),
+        h('div', { class: 'section' }, h('h4', null, T('Podle velikosti', 'By size')),
           h('table', { class: 'grid mtable' },
-            h('thead', null, h('tr', null, h('th', null, 'Problém'), vis.map((vp) => h('th', { class: `th-vp vp-${vp} num` }, VP_NAME[vp])))),
+            h('thead', null, h('tr', null, h('th', null, T('Problém', 'Problem')), vis.map((vp) => h('th', { class: `th-vp vp-${vp} num` }, VP_NAME[vp])))),
             h('tbody', null, issueRows))),
         detail)));
     this.body.scrollTop = top;
@@ -1430,7 +1482,7 @@ function collectLinks() {
 }
 
 async function checkLink(url) {
-  if (UNSAFE_LINK.test(url)) return { status: 'skip', note: 'přeskočeno (mohlo by odhlásit nebo mazat)' };
+  if (UNSAFE_LINK.test(url)) return { status: 'skip', note: T('přeskočeno (mohlo by odhlásit nebo mazat)', 'skipped (could log out or delete)') };
   const attempt = async (method) => {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 12000);
@@ -1445,7 +1497,7 @@ async function checkLink(url) {
     if ([403, 405, 501, 400].includes(r.status)) r = await attempt('GET');
     return r;
   } catch (e) {
-    return { status: 'error', note: e.name === 'AbortError' ? 'vypršel čas (12 s)' : e.message };
+    return { status: 'error', note: e.name === 'AbortError' ? T('vypršel čas (12 s)', 'timed out (12 s)') : e.message };
   }
 }
 
@@ -1475,7 +1527,7 @@ async function runLinkCheck(links) {
   ver.links++;
   scheduleRender();
   const bad = links.filter((l) => linkProblem(results.get(l.url))).length;
-  toast(bad ? `Hotovo: ${bad} ${plural(bad, 'nefunkční odkaz', 'nefunkční odkazy', 'nefunkčních odkazů')}` : 'Hotovo: všechny odkazy fungují');
+  toast(bad ? `${T('Hotovo', 'Done')}: ${bad} ${plural(bad, 'nefunkční odkaz', 'nefunkční odkazy', 'nefunkčních odkazů', 'broken link')}` : T('Hotovo: všechny odkazy fungují', 'Done: all links work'));
 }
 function stopLinkCheck() {
   linkGen++;
@@ -1487,9 +1539,9 @@ function stopLinkCheck() {
 const linkProblem = (r) => r && (r.status === 'error' || (typeof r.status === 'number' && r.status >= 400));
 
 TABS.links = {
-  label: 'Odkazy',
+  label: T('Odkazy', 'Links'),
   sig: () => ver.rt + ':' + ver.links,
-  badge() { let n = 0; for (const r of linkResults.values()) if (linkProblem(r)) n++; return n ? { n, cls: 'bad', title: `${n} ${plural(n, 'nefunkční odkaz', 'nefunkční odkazy', 'nefunkčních odkazů')}` } : null; },
+  badge() { let n = 0; for (const r of linkResults.values()) if (linkProblem(r)) n++; return n ? { n, cls: 'bad', title: `${n} ${plural(n, 'nefunkční odkaz', 'nefunkční odkazy', 'nefunkčních odkazů', 'broken link')}` } : null; },
   mount(panel) {
     this.bar = h('div', { class: 'toolbar' });
     this.body = h('div', { class: 'scroll' });
@@ -1502,40 +1554,40 @@ TABS.links = {
     const internal = links.filter((l) => l.internal).length;
     this.bar.replaceChildren(
       linkRun
-        ? h('span', { class: 'row' }, h('span', { class: 'note', role: 'status' }, `Kontroluji ${linkRun.done} z ${linkRun.total}`), h('button', { type: 'button', class: 'btn small', onclick: stopLinkCheck }, 'Zastavit'))
-        : h('button', { type: 'button', class: 'btn small primary', disabled: !scoped.length, onclick: () => runLinkCheck(scoped) }, `Zkontrolovat ${scoped.length} ${plural(scoped.length, 'odkaz', 'odkazy', 'odkazů')}`),
+        ? h('span', { class: 'row' }, h('span', { class: 'note', role: 'status' }, T(`Kontroluji ${linkRun.done} z ${linkRun.total}`, `Checking ${linkRun.done} of ${linkRun.total}`)), h('button', { type: 'button', class: 'btn small', onclick: stopLinkCheck }, T('Zastavit', 'Stop')))
+        : h('button', { type: 'button', class: 'btn small primary', disabled: !scoped.length, onclick: () => runLinkCheck(scoped) }, `${T('Zkontrolovat', 'Check')} ${scoped.length} ${plural(scoped.length, 'odkaz', 'odkazy', 'odkazů', 'link')}`),
       h('span', { class: 'seg' },
-        chipToggle('Všechny', lk.scope === 'all', () => { lk.scope = 'all'; this.update(); }, { n: links.length }),
-        chipToggle('Interní', lk.scope === 'internal', () => { lk.scope = 'internal'; this.update(); }, { n: internal }),
-        chipToggle('Externí', lk.scope === 'external', () => { lk.scope = 'external'; this.update(); }, { n: links.length - internal })),
-      chipToggle('Jen problémy', lk.problemsOnly, () => { lk.problemsOnly = !lk.problemsOnly; this.update(); }),
+        chipToggle(T('Všechny', 'All'), lk.scope === 'all', () => { lk.scope = 'all'; this.update(); }, { n: links.length }),
+        chipToggle(T('Interní', 'Internal'), lk.scope === 'internal', () => { lk.scope = 'internal'; this.update(); }, { n: internal }),
+        chipToggle(T('Externí', 'External'), lk.scope === 'external', () => { lk.scope = 'external'; this.update(); }, { n: links.length - internal })),
+      chipToggle(T('Jen problémy', 'Problems only'), lk.problemsOnly, () => { lk.problemsOnly = !lk.problemsOnly; this.update(); }),
       h('span', { class: 'grow' }),
-      h('span', { class: 'note' }, 'Ověřuje se bez cookies; odkazy na odhlášení a mazání se přeskočí.'));
+      h('span', { class: 'note' }, T('Ověřuje se bez cookies; odkazy na odhlášení a mazání se přeskočí.', 'Checked without cookies; logout and delete links are skipped.')));
     if (!links.length) {
-      this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, 'Žádné odkazy'), masterUrl ? 'Odkazy se sesbírají při kontrole stránky po načtení.' : 'Načti stránku nahoře.'));
+      this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, T('Žádné odkazy', 'No links')), masterUrl ? T('Odkazy se sesbírají při kontrole stránky po načtení.', 'Links are collected by the page check after loading.') : T('Načti stránku nahoře.', 'Load a page above.')));
       return;
     }
     const rank = (l) => { const r = linkResults.get(l.url); return linkProblem(r) ? 0 : r && r.redirected ? 1 : r ? 2 : 3; };
     const rows = scoped.filter((l) => !lk.problemsOnly || linkProblem(linkResults.get(l.url))).sort((a, b) => rank(a) - rank(b));
     const top = this.body.scrollTop;
     this.body.replaceChildren(rows.length ? h('table', { class: 'grid' },
-      h('thead', null, h('tr', null, h('th', null, 'Stav'), h('th', null, 'Adresa'), h('th', null, 'Text odkazu'), h('th', null, 'Kde'), h('th', { class: 'num' }, 'Čas'))),
+      h('thead', null, h('tr', null, h('th', null, T('Stav', 'Status')), h('th', null, T('Adresa', 'URL')), h('th', null, T('Text odkazu', 'Link text')), h('th', null, T('Kde', 'Where')), h('th', { class: 'num' }, T('Čas', 'Time')))),
       h('tbody', null, rows.map((l) => {
         const r = linkResults.get(l.url);
         let st = '–', cls = 'muted', note = '';
         if (r) {
           if (r.status === 'pending') st = '…';
-          else if (r.status === 'skip') { st = 'přeskočeno'; note = r.note; }
-          else if (r.status === 'error') { st = 'chyba'; cls = 'bad'; note = r.note; }
+          else if (r.status === 'skip') { st = T('přeskočeno', 'skipped'); note = r.note; }
+          else if (r.status === 'error') { st = T('chyba', 'error'); cls = 'bad'; note = r.note; }
           else { st = String(r.status); cls = r.status >= 400 ? 'bad' : r.redirected ? 'redir' : 'good'; if (r.redirected) note = '→ ' + r.finalUrl; }
         }
         return h('tr', null,
           h('td', { class: 'st ' + cls }, st),
           h('td', null, urlCell(l.url, masterUrl), note ? h('div', { class: 'note url' }, note) : null),
-          h('td', null, l.text || h('span', { class: 'muted' }, '(bez textu)')),
+          h('td', null, l.text || h('span', { class: 'muted' }, T('(bez textu)', '(no text)'))),
           h('td', null, h('span', { class: 'vps' }, ordered().map((v) => vpDot(v, l.vps.has(v))))),
           h('td', { class: 'num muted' }, r && r.ms ? fmtMs(r.ms) : ''));
-      }))) : h('div', { class: 'empty' }, h('strong', null, 'Žádný problém'), 'Mezi zkontrolovanými odkazy není žádný nefunkční.'));
+      }))) : h('div', { class: 'empty' }, h('strong', null, T('Žádný problém', 'No problem')), T('Mezi zkontrolovanými odkazy není žádný nefunkční.', 'None of the checked links is broken.')));
     this.body.scrollTop = top;
   },
 };
@@ -1545,7 +1597,9 @@ TABS.links = {
 async function loadNotes(host) {
   const key = 'notes:' + host;
   const data = (await chrome.storage.local.get(key))[key];
-  notesState = { host, checklist: data?.checklist || DEFAULT_CHECKLIST.map((text) => ({ text, done: false })), notes: data?.notes || [] };
+  // An untouched default list follows the interface language.
+  const checklist = data?.checklist && !isDefaultChecklist(data.checklist) ? data.checklist : DEFAULT_CHECKLIST.map((text) => ({ text, done: false }));
+  notesState = { host, checklist, notes: data?.notes || [] };
   ver.notes++;
   scheduleRender();
 }
@@ -1561,16 +1615,20 @@ function addNote(kind, text, vps, url) {
   scheduleRender();
 }
 
+const RESET_ASK = T('Opravdu nahradit? Klikni znovu', 'Replace the list? Click again');
+const RESET_LABEL = T('Obnovit výchozí seznam', 'Reset to the default list');
+const NOTE_KIND = { bug: T('Chyba', 'Bug'), idea: T('Postřeh', 'Idea'), ok: T('V pořádku', 'OK') };
+
 TABS.notes = {
-  label: 'Poznámky',
+  label: T('Poznámky', 'Notes'),
   sig: () => ver.notes,
-  badge() { const n = notesState.notes.filter((x) => x.kind === 'bug').length; return n ? { n, cls: 'warn', title: `${n} ${plural(n, 'zapsaná chyba', 'zapsané chyby', 'zapsaných chyb')}` } : null; },
+  badge() { const n = notesState.notes.filter((x) => x.kind === 'bug').length; return n ? { n, cls: 'warn', title: `${n} ${plural(n, 'zapsaná chyba', 'zapsané chyby', 'zapsaných chyb', 'noted bug')}` } : null; },
   mount(panel) {
     this.body = h('div', { class: 'scroll' });
-    this.text = h('textarea', { class: 'field', id: 'noteText', placeholder: 'Co jsi našel? Např. „Na mobilu se menu po kliknutí nezavře.“', 'aria-label': 'Text poznámky' });
-    this.kind = h('select', { class: 'field', 'aria-label': 'Druh poznámky' }, h('option', { value: 'bug' }, 'Chyba'), h('option', { value: 'idea' }, 'Postřeh'), h('option', { value: 'ok' }, 'V pořádku'));
-    this.vpSel = h('select', { class: 'field', 'aria-label': 'Týká se velikosti' }, h('option', { value: '' }, 'Všechny velikosti'), ordered().map((vp) => h('option', { value: vp }, VP_NAME[vp])));
-    this.newItem = h('input', { class: 'field grow', id: 'newItem', placeholder: 'Přidat bod do seznamu', 'aria-label': 'Nový bod kontrolního seznamu' });
+    this.text = h('textarea', { class: 'field', id: 'noteText', placeholder: T('Co jsi našel? Např. „Na mobilu se menu po kliknutí nezavře.“', 'What did you find? E.g. “On mobile the menu does not close after a click.”'), 'aria-label': T('Text poznámky', 'Note text') });
+    this.kind = h('select', { class: 'field', 'aria-label': T('Druh poznámky', 'Kind of note') }, h('option', { value: 'bug' }, NOTE_KIND.bug), h('option', { value: 'idea' }, NOTE_KIND.idea), h('option', { value: 'ok' }, NOTE_KIND.ok));
+    this.vpSel = h('select', { class: 'field', 'aria-label': T('Týká se velikosti', 'Concerns the size') }, h('option', { value: '' }, T('Všechny velikosti', 'All sizes')), ordered().map((vp) => h('option', { value: vp }, VP_NAME[vp])));
+    this.newItem = h('input', { class: 'field grow', id: 'newItem', placeholder: T('Přidat bod do seznamu', 'Add an item to the list'), 'aria-label': T('Nový bod kontrolního seznamu', 'New checklist item') });
     this.text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) this.submit(); });
     this.newItem.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.addItem(); });
     panel.append(this.body);
@@ -1593,58 +1651,58 @@ TABS.notes = {
   },
   update() {
     if (!this.body || !this.body.isConnected) return;
-    if (!notesState.host) { this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, 'Poznámky se ukládají ke každému webu zvlášť'), 'Načti stránku a můžeš si odškrtávat kontrolní seznam a zapisovat nálezy.')); return; }
+    if (!notesState.host) { this.body.replaceChildren(h('div', { class: 'empty' }, h('strong', null, T('Poznámky se ukládají ke každému webu zvlášť', 'Notes are kept for each site separately')), T('Načti stránku a můžeš si odškrtávat kontrolní seznam a zapisovat nálezy.', 'Load a page to tick off the checklist and write down findings.'))); return; }
     const cl = notesState.checklist;
     const done = cl.filter((c) => c.done).length;
-    const kindName = { bug: 'Chyba', idea: 'Postřeh', ok: 'V pořádku' };
+    const kindName = NOTE_KIND;
     const top = this.body.scrollTop;
     keepFocus(this.body, () => this.body.replaceChildren(h('div', { class: 'notes' },
       h('div', null,
         h('div', { class: 'row', style: { justifyContent: 'space-between' } },
-          h('h4', { style: { margin: 0 } }, `Kontrolní seznam pro ${notesState.host}`),
-          h('span', { class: 'note' }, `${done} z ${cl.length}`)),
+          h('h4', { style: { margin: 0 } }, T(`Kontrolní seznam pro ${notesState.host}`, `Checklist for ${notesState.host}`)),
+          h('span', { class: 'note' }, T(`${done} z ${cl.length}`, `${done} of ${cl.length}`))),
         h('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': cl.length, 'aria-valuenow': done }, h('i', { style: { width: (cl.length ? (done / cl.length) * 100 : 0) + '%' } })),
         h('ul', { class: 'checklist' }, cl.map((c, i) => {
           const id = 'chk-' + i;
           return h('li', { class: c.done ? 'done' : '' },
             h('input', { type: 'checkbox', id, checked: c.done, onchange: (e) => { c.done = e.target.checked; saveNotes(); this.update(); } }),
             h('label', { for: id }, c.text),
-            h('button', { type: 'button', class: 'ibtn', title: 'Odebrat bod', 'aria-label': 'Odebrat bod: ' + c.text, html: svg('close'), onclick: () => { cl.splice(i, 1); saveNotes(); this.update(); } }));
+            h('button', { type: 'button', class: 'ibtn', title: T('Odebrat bod', 'Remove item'), 'aria-label': T('Odebrat bod: ', 'Remove item: ') + c.text, html: svg('close'), onclick: () => { cl.splice(i, 1); saveNotes(); this.update(); } }));
         })),
-        h('div', { class: 'row' }, this.newItem, h('button', { type: 'button', class: 'btn small', onclick: () => this.addItem() }, 'Přidat')),
+        h('div', { class: 'row' }, this.newItem, h('button', { type: 'button', class: 'btn small', onclick: () => this.addItem() }, T('Přidat', 'Add'))),
         h('div', { class: 'row', style: { marginTop: '8px' } },
-          h('button', { type: 'button', class: 'btn small', onclick: () => { cl.forEach((c) => { c.done = false; }); saveNotes(); this.update(); } }, 'Zrušit zaškrtnutí'),
+          h('button', { type: 'button', class: 'btn small', onclick: () => { cl.forEach((c) => { c.done = false; }); saveNotes(); this.update(); } }, T('Zrušit zaškrtnutí', 'Uncheck all')),
           this.resetBtn = h('button', {
             type: 'button', class: 'btn small', 'data-fk': 'reset-checklist',
             onclick: () => {
               // Two-step: the first click asks, the second within 4 s replaces the list.
               if (!this.confirmReset) {
                 this.confirmReset = true;
-                this.resetBtn.textContent = 'Opravdu nahradit? Klikni znovu';
+                this.resetBtn.textContent = RESET_ASK;
                 clearTimeout(this.resetTimer);
-                this.resetTimer = setTimeout(() => { this.confirmReset = false; if (this.resetBtn) this.resetBtn.textContent = 'Obnovit výchozí seznam'; }, 4000);
+                this.resetTimer = setTimeout(() => { this.confirmReset = false; if (this.resetBtn) this.resetBtn.textContent = RESET_LABEL; }, 4000);
                 return;
               }
               this.confirmReset = false;
               notesState.checklist = DEFAULT_CHECKLIST.map((text) => ({ text, done: false }));
               saveNotes();
               this.update();
-              toast('Kontrolní seznam obnoven');
+              toast(T('Kontrolní seznam obnoven', 'Checklist reset'));
             },
-          }, this.confirmReset ? 'Opravdu nahradit? Klikni znovu' : 'Obnovit výchozí seznam'))),
+          }, this.confirmReset ? RESET_ASK : RESET_LABEL))),
       h('div', null,
         h('div', { class: 'row', style: { justifyContent: 'space-between', marginBottom: '6px' } },
-          h('h4', { style: { margin: 0 } }, 'Nálezy'),
+          h('h4', { style: { margin: 0 } }, T('Nálezy', 'Findings')),
           h('span', { class: 'row' },
-            h('button', { type: 'button', class: 'btn small', html: svg('copy') + 'Kopírovat zprávu', title: 'Markdown se seznamem, poznámkami, chybami, sítí a výkonem', onclick: () => copyText(reportMarkdown(), 'Zpráva v Markdownu je ve schránce') }),
-            h('button', { type: 'button', class: 'btn small', onclick: () => download(`test-${notesState.host}-${new Date().toISOString().slice(0, 10)}.md`, new Blob([reportMarkdown()], { type: 'text/markdown' })) }, 'Stáhnout .md'))),
+            h('button', { type: 'button', class: 'btn small', html: svg('copy') + T('Kopírovat zprávu', 'Copy report'), title: T('Markdown se seznamem, poznámkami, chybami, sítí a výkonem', 'Markdown with the checklist, notes, errors, network and performance'), onclick: () => copyText(reportMarkdown(), T('Zpráva v Markdownu je ve schránce', 'Markdown report copied')) }),
+            h('button', { type: 'button', class: 'btn small', onclick: () => download(`test-${notesState.host}-${new Date().toISOString().slice(0, 10)}.md`, new Blob([reportMarkdown()], { type: 'text/markdown' })) }, T('Stáhnout .md', 'Download .md')))),
         this.text,
-        h('div', { class: 'row', style: { marginTop: '6px' } }, this.kind, this.vpSel, h('span', { class: 'grow', style: { flex: 1 } }), h('span', { class: 'note' }, 'Ctrl+Enter'), h('button', { type: 'button', class: 'btn small primary', onclick: () => this.submit() }, 'Uložit poznámku')),
+        h('div', { class: 'row', style: { marginTop: '6px' } }, this.kind, this.vpSel, h('span', { class: 'grow', style: { flex: 1 } }), h('span', { class: 'note' }, 'Ctrl+Enter'), h('button', { type: 'button', class: 'btn small primary', onclick: () => this.submit() }, T('Uložit poznámku', 'Save note'))),
         notesState.notes.length ? h('ul', { class: 'notelist' }, notesState.notes.map((n) => h('li', null,
           h('span', { class: 'kind ' + n.kind }, kindName[n.kind]),
           h('span', { class: 'txt' }, n.text),
-          h('button', { type: 'button', class: 'ibtn', title: 'Smazat poznámku', 'aria-label': 'Smazat poznámku', html: svg('close'), onclick: () => { notesState.notes = notesState.notes.filter((x) => x.id !== n.id); saveNotes(); this.update(); } }),
-          h('span', { class: 'meta' }, `${new Date(n.t).toLocaleString('cs-CZ')} · ${n.vps ? n.vps.split(',').map((v) => VP_NAME[v] || v).join(', ') : 'všechny velikosti'} · ${splitUrl(n.url).rest || n.url}`)))) : h('p', { class: 'note', style: { marginTop: '12px' } }, 'Zatím žádné nálezy. Chybu z konzole přidáš i tlačítkem „Přidat do poznámek“ u zprávy.')))));
+          h('button', { type: 'button', class: 'ibtn', title: T('Smazat poznámku', 'Delete note'), 'aria-label': T('Smazat poznámku', 'Delete note'), html: svg('close'), onclick: () => { notesState.notes = notesState.notes.filter((x) => x.id !== n.id); saveNotes(); this.update(); } }),
+          h('span', { class: 'meta' }, `${new Date(n.t).toLocaleString(LOCALE)} · ${n.vps ? n.vps.split(',').map((v) => VP_NAME[v] || v).join(', ') : T('všechny velikosti', 'all sizes')} · ${splitUrl(n.url).rest || n.url}`)))) : h('p', { class: 'note', style: { marginTop: '12px' } }, T('Zatím žádné nálezy. Chybu z konzole přidáš i tlačítkem „Přidat do poznámek“ u zprávy.', 'No findings yet. You can also add a console error with “Add to the notes” on the message.'))))));
     this.body.scrollTop = top;
   },
 };
@@ -1671,8 +1729,9 @@ function cachedReport() {
   return reportCache.R;
 }
 
-const itemText = (i) => [i.path || i.desc, i.text ? `„${i.text}“` : '', i.note ? `(${i.note})` : ''].filter(Boolean).join(' ');
-const isDefaultChecklist = (cl) => cl.length === DEFAULT_CHECKLIST.length && cl.every((c, i) => !c.done && c.text === DEFAULT_CHECKLIST[i]);
+const quote = (t) => T(`„${t}“`, `“${t}”`);
+const itemText = (i) => [i.path || i.desc, i.text ? quote(i.text) : '', i.note ? `(${i.note})` : ''].filter(Boolean).join(' ');
+const isDefaultChecklist = (cl) => Object.values(CHECKLISTS).some((d) => cl.length === d.length && cl.every((c, i) => !c.done && c.text === d[i]));
 
 function buildReport() {
   const vis = visibleVps();
@@ -1710,7 +1769,7 @@ function buildReport() {
   }
   const src = ['desktop', 'tablet', 'mobile'].find((vp) => vis.includes(vp) && rt[vp].audit);
   const page = src ? rt[src].audit.page : null;
-  const pageChecksList = page ? pageChecks(page).map((c) => ({ check: c.k, value: c.v, status: c.status || 'info', hint: c.hint || null })) : [];
+  const pageChecksList = page ? pageChecks(page).map((c) => ({ id: c.id, check: c.k, value: c.v, status: c.status || 'info', hint: c.hint || null })) : [];
   const levelRank = { error: 0, warn: 1, info: 2 };
   const consoleEntries = [...logs.values()]
     .filter((e) => e.level === 'error' || e.level === 'warn' || (e.level === 'info' && (e.source === 'dialog' || e.source === 'bench')))
@@ -1725,21 +1784,22 @@ function buildReport() {
   const add = (severity, text) => findings.push({ severity, text });
   if (!ready) {
     const pending = vis.filter((vp) => rt[vp].loading || (rt[vp].probe && !(rt[vp].perf && (rt[vp].audit || rt[vp].auditError))));
-    add('bad', `Měření nedoběhlo${pending.length ? ': ' + pending.map((vp) => VP_NAME[vp]).join(', ') + ' se stále načítá nebo měří' : ''}. Údaje mohou chybět.`);
+    add('bad', T('Měření nedoběhlo', 'The measurement did not finish') + (pending.length ? ': ' + pending.map((vp) => VP_NAME[vp]).join(', ') + T(' se stále načítá nebo měří', ' still loading or measuring') : '') + T('. Údaje mohou chybět.', '. Data may be missing.'));
   }
   for (const vp of vis) {
     const v = viewports[vp];
-    if (v.status === 'error') add('bad', `${v.name}: stránka se nenačetla (${v.error})`);
-    else if (v.status === 'timeout') add('bad', `${v.name}: stránka se nenačetla do 30 s`);
-    else if (v.status === 'not-measured') add('bad', `${v.name}: stránku se nepodařilo změřit (měřicí skript se do ní nedostal – PDF, chybová stránka prohlížeče, nebo web zobrazení v rámu odmítl)`);
-    if (v.httpStatus) add('bad', `${v.name}: dokument vrátil HTTP ${v.httpStatus}`);
+    if (v.status === 'error') add('bad', `${v.name}: ${T('stránka se nenačetla', 'the page did not load')} (${v.error})`);
+    else if (v.status === 'timeout') add('bad', `${v.name}: ${T('stránka se nenačetla do 30 s', 'the page did not load within 30 s')}`);
+    else if (v.status === 'not-measured') add('bad', `${v.name}: ${T('stránku se nepodařilo změřit (měřicí skript se do ní nedostal – PDF, chybová stránka prohlížeče, nebo web zobrazení v rámu odmítl)', 'the page could not be measured (the measuring script did not get in – a PDF, a browser error page, or the site refused to be framed)')}`);
+    if (v.httpStatus) add('bad', `${v.name}: ${T('dokument vrátil', 'the document returned')} HTTP ${v.httpStatus}`);
   }
   const errs = consoleEntries.filter((e) => e.level === 'error');
   const warns = consoleEntries.filter((e) => e.level === 'warn' && e.source !== 'bench');
   for (const e of consoleEntries) if (e.level === 'warn' && e.source === 'bench') add('warn', e.message);
-  if (errs.length) add('bad', `Konzole: ${errs.length} ${plural(errs.length, 'chyba', 'chyby', 'chyb')}, např. ${mdCode(errs[0].message.split('\n')[0].slice(0, 120))}`);
-  if (warns.length) add('warn', `Konzole: ${warns.length} ${plural(warns.length, 'varování', 'varování', 'varování')}, např. ${mdCode(warns[0].message.split('\n')[0].slice(0, 120))}`);
-  if (failed.length) add('bad', `Síť: ${failed.length} ${plural(failed.length, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků')}, např. ${failed[0].status} ${mdCode(failed[0].url)}`);
+  const eg = T('např.', 'e.g.');
+  if (errs.length) add('bad', `${T('Konzole', 'Console')}: ${errs.length} ${plural(errs.length, 'chyba', 'chyby', 'chyb', 'error')}, ${eg} ${mdCode(errs[0].message.split('\n')[0].slice(0, 120))}`);
+  if (warns.length) add('warn', `${T('Konzole', 'Console')}: ${warns.length} ${plural(warns.length, 'varování', 'varování', 'varování', 'warning')}, ${eg} ${mdCode(warns[0].message.split('\n')[0].slice(0, 120))}`);
+  if (failed.length) add('bad', `${T('Síť', 'Network')}: ${failed.length} ${plural(failed.length, 'neúspěšný požadavek', 'neúspěšné požadavky', 'neúspěšných požadavků', 'failed request')}, ${eg} ${failed[0].status} ${mdCode(failed[0].url)}`);
   const measured = vis.filter((x) => viewports[x].perf);
   // The three frames share the browser's request queue (identical requests go one after another),
   // and only the document's wait can be measured. A frame whose timing is worse than another
@@ -1770,31 +1830,32 @@ function buildReport() {
   for (const vp of vis) if (!viewports[vp].queueLimited) viewports[vp].queueLimited = [];
   for (const vp of vis) {
     const v = viewports[vp];
-    if (v.horizontalOverflowPx) add('bad', `${v.name} ${v.width} px: vodorovný posun +${v.horizontalOverflowPx} px${v.issues.overflow ? ', způsobuje ' + v.issues.overflow.items.slice(0, 2).map((i) => mdCode(itemText(i))).join(', ') : ''}`);
+    if (v.horizontalOverflowPx) add('bad', `${v.name} ${v.width} px: ${T('vodorovný posun', 'horizontal scroll')} +${v.horizontalOverflowPx} px${v.issues.overflow ? T(', způsobuje ', ', caused by ') + v.issues.overflow.items.slice(0, 2).map((i) => mdCode(itemText(i))).join(', ') : ''}`);
     for (const key of ['broken', 'mixed']) if (v.issues[key]) add('bad', `${v.name}: ${v.issues[key].label.toLowerCase()} ${v.issues[key].count}×`);
     if (v.ratings) {
       const pick = (keys) => keys.map((k) => METRICS.find((m) => m.key === k));
       const bad = pick(Object.keys(v.ratings).filter((k) => v.ratings[k] === 'bad'));
       const warn = pick(Object.keys(v.ratings).filter((k) => v.ratings[k] === 'warn' && !v.queueLimited.includes(k)));
-      if (bad.length) add('bad', `${v.name}: špatné ${bad.map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}`);
-      if (v.queueLimited.length) add('warn', `${v.name}: pomalé ${pick(v.queueLimited).map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}, stejná věc byla v jiném rámu rychlejší – rozdíl je nejspíš čekání ve frontě panelu`);
-      if (warn.length) add('warn', `${v.name}: zlepšit ${warn.map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}`);
+      if (bad.length) add('bad', `${v.name}: ${T('špatné', 'poor')} ${bad.map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}`);
+      if (v.queueLimited.length) add('warn', `${v.name}: ${T('pomalé', 'slow')} ${pick(v.queueLimited).map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}${T(', stejná věc byla v jiném rámu rychlejší – rozdíl je nejspíš čekání ve frontě panelu', ', the same thing was faster in another frame – the difference is most likely the bench\'s request queue')}`);
+      if (warn.length) add('warn', `${v.name}: ${T('zlepšit', 'needs improvement')} ${warn.map((m) => `${m.label} ${m.f(v.perf[m.key])}`).join(', ')}`);
     }
     const minor = ISSUES.filter((is) => is.sev === 'warn' && v.issues[is.key]).map((is) => `${is.label.toLowerCase()} ${v.issues[is.key].count}×`);
     if (minor.length) add('warn', `${v.name}: ${minor.join(', ')}`);
-    if (v.pageCheckError) add('bad', `${v.name}: kontrolu stránky se nepodařilo provést (${v.pageCheckError}), přetečení a další problémy nejsou známé`);
+    if (v.pageCheckError) add('bad', `${v.name}: ${T('kontrolu stránky se nepodařilo provést', 'the page check could not run')} (${v.pageCheckError})${T(', přetečení a další problémy nejsou známé', ', overflow and other problems are unknown')}`);
   }
-  for (const c of pageChecksList) if (c.status === 'bad') add('bad', `Stránka: ${c.check} – ${tagsToCode(c.hint || c.value)}`);
+  const pageWord = T('Stránka', 'Page');
+  for (const c of pageChecksList) if (c.status === 'bad') add('bad', `${pageWord}: ${c.check} – ${tagsToCode(c.hint || c.value)}`);
   const pageWarn = pageChecksList.filter((c) => c.status === 'warn');
-  if (pageWarn.length) add('warn', `Stránka: zkontroluj ${pageWarn.map((c) => c.check[0].toLowerCase() + c.check.slice(1)).join(', ')} (podrobnosti v části Stránka)`);
-  if (brokenLinks.length) add('bad', `Odkazy: ${brokenLinks.length} ${plural(brokenLinks.length, 'nefunkční', 'nefunkční', 'nefunkčních')}`);
+  if (pageWarn.length) add('warn', `${pageWord}: ${T('zkontroluj', 'check')} ${pageWarn.map((c) => LANG === 'cs' ? c.check[0].toLowerCase() + c.check.slice(1) : c.check).join(', ')} ${T('(podrobnosti v části Stránka)', '(details in the Page section)')}`);
+  if (brokenLinks.length) add('bad', `${T('Odkazy', 'Links')}: ${brokenLinks.length} ${plural(brokenLinks.length, 'nefunkční', 'nefunkční', 'nefunkčních', 'broken', 'broken')}`);
 
   const manualUsed = notesState.host && (notesState.notes.length || !isDefaultChecklist(notesState.checklist));
   return {
-    tool: 'Web Test Bench', version: chrome.runtime.getManifest().version, generatedAt: new Date().toISOString(),
+    tool: 'Web Test Bench', version: chrome.runtime.getManifest().version, language: LANG, generatedAt: new Date().toISOString(),
     url: masterUrl, ready,
     passed: ready && !findings.some((f) => f.severity === 'bad'),
-    notes: 'Rámy simulují velikost obrazovky (CSS breakpointy), ne User-Agent serveru ani dotyk. Časy jsou orientační, rámy se načítají současně; prohlížeč posílá stejné požadavky ze tří rámů postupně. Čekání dokumentu ve frontě je odečtené (queuedMs), čekání u přesměrování a zdrojů ne, proto se rám hodnotí podle rychlejšího rámu, který měřil totéž (LCP: stejný prvek i soubor), jen když rozdíl vysvětluje naměřené čekání (resQueuedMs u zdrojů, delší přesměrování). Čekání u zdrojů z cizích domén bez Timing-Allow-Origin vidět není. ratings = hodnocení, rawRatings = podle prahů, queueLimited = metriky hodnocené podle jiného rámu. LCP null = prohlížeč ho pro rám nenahlásil.',
+    notes: T('Rámy simulují velikost obrazovky (CSS breakpointy), ne User-Agent serveru ani dotyk. Časy jsou orientační, rámy se načítají současně; prohlížeč posílá stejné požadavky ze tří rámů postupně. Čekání dokumentu ve frontě je odečtené (queuedMs), čekání u přesměrování a zdrojů ne, proto se rám hodnotí podle rychlejšího rámu, který měřil totéž (LCP: stejný prvek i soubor), jen když rozdíl vysvětluje naměřené čekání (resQueuedMs u zdrojů, delší přesměrování). Čekání u zdrojů z cizích domén bez Timing-Allow-Origin vidět není. ratings = hodnocení, rawRatings = podle prahů, queueLimited = metriky hodnocené podle jiného rámu. LCP null = prohlížeč ho pro rám nenahlásil.', 'The frames emulate the screen size (CSS breakpoints), not the User-Agent sent to the server or touch. Timings are indicative: the frames load at the same time and the browser sends identical requests from the three frames one after another. The document\'s queueing is subtracted (queuedMs); queueing of redirects and resources is not, so a frame is judged by a faster frame that measured the same thing (LCP: the same element and file), but only when the measured waiting explains the difference (resQueuedMs for resources, a longer redirect). Waiting of resources from other origins without Timing-Allow-Origin is not visible. ratings = judged, rawRatings = by thresholds only, queueLimited = metrics judged by another frame. LCP null = the browser did not report it for the frame.'),
     findings,
     viewports,
     page: page ? { checks: pageChecksList, headings: rt[src].audit.headings.map((hd) => ({ level: hd.level, text: hd.text, hidden: hd.hidden })) } : null,
@@ -1814,30 +1875,30 @@ function reportMarkdown() {
   const L = [];
   const vis = Object.keys(R.viewports);
   const name = (vp) => R.viewports[vp].name;
-  L.push(`# Test webu ${splitUrl(R.url).host}`, '', `- Adresa: ${R.url}`, `- Čas: ${new Date(R.generatedAt).toLocaleString('cs-CZ')}`,
-    `- Velikosti: ${vis.map((vp) => `${name(vp)} ${R.viewports[vp].width}×${R.viewports[vp].height}`).join(', ')}`,
-    `- Výsledek: ${!R.ready ? 'měření nedoběhlo, údaje mohou chybět' : R.passed ? 'bez závažných problémů' : 'našly se závažné problémy (✗)'}`, '');
-  L.push('## Hlavní zjištění', '');
+  L.push(`# ${T('Test webu', 'Web test')} ${splitUrl(R.url).host}`, '', `- ${T('Adresa', 'URL')}: ${R.url}`, `- ${T('Čas', 'Time')}: ${new Date(R.generatedAt).toLocaleString(LOCALE)}`,
+    `- ${T('Velikosti', 'Sizes')}: ${vis.map((vp) => `${name(vp)} ${R.viewports[vp].width}×${R.viewports[vp].height}`).join(', ')}`,
+    `- ${T('Výsledek', 'Result')}: ${!R.ready ? T('měření nedoběhlo, údaje mohou chybět', 'the measurement did not finish, data may be missing') : R.passed ? T('bez závažných problémů', 'no serious problems') : T('našly se závažné problémy (✗)', 'serious problems found (✗)')}`, '');
+  L.push(T('## Hlavní zjištění', '## Key findings'), '');
   if (R.findings.length) for (const f of R.findings) L.push(`- ${f.severity === 'bad' ? '✗' : '⚠'} ${f.text}`);
-  else L.push('- ✓ Žádné problémy.');
+  else L.push(T('- ✓ Žádné problémy.', '- ✓ No problems.'));
   L.push('');
 
   const measured = vis.filter((vp) => R.viewports[vp].perf);
   if (measured.length) {
-    L.push('## Výkon', '', `| Metrika | ${measured.map(name).join(' | ')} |`, `|---|${measured.map(() => '---:').join('|')}|`);
+    L.push(T('## Výkon', '## Performance'), '', `| ${T('Metrika', 'Metric')} | ${measured.map(name).join(' | ')} |`, `|---|${measured.map(() => '---:').join('|')}|`);
     for (const m of METRICS) {
       L.push(`| ${m.label} | ${measured.map((vp) => {
         const v = R.viewports[vp];
         const val = v.perf[m.key];
         const rating = v.ratings && v.ratings[m.key];
-        const queue = v.queueLimited.includes(m.key) ? ' (fronta)' : '';
+        const queue = v.queueLimited.includes(m.key) ? T(' (fronta)', ' (queue)') : '';
         return val === null || val === undefined ? '–' : m.f(val) + (rating === 'bad' ? ' ✗' : rating === 'warn' ? ' ⚠' : '') + queue;
       }).join(' | ')} |`);
     }
-    L.push('', '✗ špatné, ⚠ zlepšit (hranice Core Web Vitals). (fronta) = stejná věc byla v jiném rámu rychlejší, hodnocení podle něj. – = nezměřeno (LCP prohlížeč u malých stránek někdy nenahlásí).', '');
+    L.push('', T('✗ špatné, ⚠ zlepšit (hranice Core Web Vitals). (fronta) = stejná věc byla v jiném rámu rychlejší, hodnocení podle něj. – = nezměřeno (LCP prohlížeč u malých stránek někdy nenahlásí).', '✗ poor, ⚠ needs improvement (Core Web Vitals thresholds). (queue) = the same thing was faster in another frame and is rated by it. – = not measured (browsers sometimes report no LCP for small pages).'), '');
     const slow = R.viewports[measured[measured.length - 1]].slowestResources || [];
     if (slow.length) {
-      L.push(`Nejpomalejší zdroje (${name(measured[measured.length - 1])}):`, '');
+      L.push(`${T('Nejpomalejší zdroje', 'Slowest resources')} (${name(measured[measured.length - 1])}):`, '');
       for (const x of slow) L.push(`- ${fmtMs(x.duration)} ${x.type} ${mdCode(x.url)}`);
       L.push('');
     }
@@ -1845,7 +1906,7 @@ function reportMarkdown() {
 
   const rows = ISSUES.filter((is) => vis.some((vp) => R.viewports[vp].issues[is.key]));
   if (rows.length) {
-    L.push('## Problémy podle velikosti', '', `| Problém | ${vis.map(name).join(' | ')} |`, `|---|${vis.map(() => '---:').join('|')}|`);
+    L.push(T('## Problémy podle velikosti', '## Problems by size'), '', `| ${T('Problém', 'Problem')} | ${vis.map(name).join(' | ')} |`, `|---|${vis.map(() => '---:').join('|')}|`);
     for (const is of rows) L.push(`| ${is.label} | ${vis.map((vp) => (R.viewports[vp].issues[is.key] ? R.viewports[vp].issues[is.key].count : 0)).join(' | ')} |`);
     L.push('');
     for (const vp of vis) {
@@ -1856,44 +1917,44 @@ function reportMarkdown() {
       for (const k of keys) {
         L.push(`- ${v.issues[k].label} (${v.issues[k].count}):`);
         for (const i of v.issues[k].items.slice(0, 6)) L.push(`  - ${mdCode(itemText(i))}`);
-        if (v.issues[k].count > 6) L.push(`  - … a dalších ${v.issues[k].count - 6}`);
+        if (v.issues[k].count > 6) L.push(T(`  - … a dalších ${v.issues[k].count - 6}`, `  - … and ${v.issues[k].count - 6} more`));
       }
       L.push('');
     }
   }
 
   if (R.page) {
-    L.push('## Stránka', '');
+    L.push(T('## Stránka', '## Page'), '');
     for (const c of R.page.checks) L.push(`- ${c.status === 'good' ? '✓' : c.status === 'bad' ? '✗' : c.status === 'warn' ? '⚠' : '·'} ${c.check}: ${mdCode(c.value)}${c.hint ? ' – ' + tagsToCode(c.hint) : ''}`);
     L.push('');
   }
   if (R.console.length) {
-    const lvl = { error: 'Chyba', warn: 'Varování', info: 'Info' };
-    L.push(`## Konzole (${R.console.length})`, '');
+    const lvl = { error: T('Chyba', 'Error'), warn: T('Varování', 'Warning'), info: 'Info' };
+    L.push(`## ${T('Konzole', 'Console')} (${R.console.length})`, '');
     for (const e of R.console) L.push(`- ${lvl[e.level]} ${mdCode(e.message.split('\n')[0].slice(0, 300))} — ${e.viewports.map((v) => VP_NAME[v]).join(', ')}${e.count > 1 ? `, ${e.count}×` : ''}${e.where ? ', ' + mdCode(e.where) : ''}`);
     L.push('');
   }
   if (R.failedRequests.length) {
-    L.push(`## Neúspěšné požadavky (${R.failedRequests.length})`, '');
+    L.push(`## ${T('Neúspěšné požadavky', 'Failed requests')} (${R.failedRequests.length})`, '');
     for (const f of R.failedRequests) L.push(`- ${f.status} ${f.type} ${mdCode(f.url)} — ${f.viewports.map((v) => VP_NAME[v]).join(', ')}`);
     L.push('');
   }
   if (R.links.checked) {
-    L.push(`## Odkazy (zkontrolováno ${R.links.checked} z ${R.links.found})`, '');
+    L.push(T(`## Odkazy (zkontrolováno ${R.links.checked} z ${R.links.found})`, `## Links (${R.links.checked} of ${R.links.found} checked)`), '');
     if (R.links.broken.length) for (const b of R.links.broken) L.push(`- ${b.status === 'error' ? b.note : b.status} ${mdCode(b.url)}`);
-    else L.push('- Všechny zkontrolované odkazy fungují.');
+    else L.push(T('- Všechny zkontrolované odkazy fungují.', '- All checked links work.'));
     L.push('');
   }
   if (R.manualTesting) {
     const cl = R.manualTesting.checklist;
-    L.push(`## Kontrolní seznam (${cl.filter((c) => c.done).length}/${cl.length})`, '');
+    L.push(`## ${T('Kontrolní seznam', 'Checklist')} (${cl.filter((c) => c.done).length}/${cl.length})`, '');
     for (const c of cl) L.push(`- [${c.done ? 'x' : ' '}] ${c.text}`);
     L.push('');
-    const kindName = { bug: 'Chyba', idea: 'Postřeh', ok: 'V pořádku' };
+    const kindName = NOTE_KIND;
     if (R.manualTesting.notes.length) {
-      L.push('## Poznámky z ručního testu', '');
+      L.push(T('## Poznámky z ručního testu', '## Notes from manual testing'), '');
       for (const n of R.manualTesting.notes.slice().reverse()) {
-        const where = n.viewports === 'all' ? 'všechny velikosti' : n.viewports.split(',').map((v) => VP_NAME[v] || v).join(', ');
+        const where = n.viewports === 'all' ? T('všechny velikosti', 'all sizes') : n.viewports.split(',').map((v) => VP_NAME[v] || v).join(', ');
         L.push(`- **${kindName[n.kind]}** (${where}, ${splitUrl(n.url).rest || n.url}): ${n.text.replace(/\n/g, ' ')}`);
       }
       L.push('');
@@ -1903,25 +1964,25 @@ function reportMarkdown() {
 }
 
 TABS.report = {
-  label: 'Zpráva',
+  label: T('Zpráva', 'Report'),
   sig: () => [ver.rt, ver.logs, ver.net, ver.links, ver.notes].join(':'),
   mount(panel) {
     this.state = h('span', { class: 'note', role: 'status' });
-    this.pre = h('pre', { class: 'report', tabindex: 0, 'aria-label': 'Zpráva v Markdownu' });
+    this.pre = h('pre', { class: 'report', tabindex: 0, 'aria-label': T('Zpráva v Markdownu', 'Markdown report') });
     panel.append(
       h('div', { class: 'toolbar' },
-        h('button', { type: 'button', class: 'btn small primary', html: svg('copy') + 'Kopírovat Markdown', onclick: () => copyText(reportMarkdown(), 'Zpráva v Markdownu je ve schránce') }),
-        h('button', { type: 'button', class: 'btn small', onclick: () => copyText(JSON.stringify(buildReport(), null, 2), 'Zpráva v JSON je ve schránce') }, 'Kopírovat JSON'),
-        h('button', { type: 'button', class: 'btn small', onclick: () => download(`test-${splitUrl(masterUrl).host || 'web'}-${new Date().toISOString().slice(0, 10)}.md`, new Blob([reportMarkdown()], { type: 'text/markdown' })) }, 'Stáhnout .md'),
+        h('button', { type: 'button', class: 'btn small primary', html: svg('copy') + T('Kopírovat Markdown', 'Copy Markdown'), onclick: () => copyText(reportMarkdown(), T('Zpráva v Markdownu je ve schránce', 'Markdown report copied')) }),
+        h('button', { type: 'button', class: 'btn small', onclick: () => copyText(JSON.stringify(buildReport(), null, 2), T('Zpráva v JSON je ve schránce', 'JSON report copied')) }, T('Kopírovat JSON', 'Copy JSON')),
+        h('button', { type: 'button', class: 'btn small', onclick: () => download(`test-${splitUrl(masterUrl).host || 'web'}-${new Date().toISOString().slice(0, 10)}.md`, new Blob([reportMarkdown()], { type: 'text/markdown' })) }, T('Stáhnout .md', 'Download .md')),
         this.state,
         h('span', { class: 'grow' }),
-        h('span', { class: 'note' }, 'Pro AI: ', h('code', null, 'webTestBench.report()'), ' v této záložce, nebo ', h('code', null, 'node tools/wtb.mjs <url>'), ' v terminálu.')),
+        h('span', { class: 'note' }, T('Pro AI: ', 'For AI: '), h('code', null, 'webTestBench.report()'), T(' v této záložce, nebo ', ' in this tab, or '), h('code', null, 'node tools/wtb.mjs <url>'), T(' v terminálu.', ' in a terminal.'))),
       h('div', { class: 'scroll' }, this.pre));
   },
   update() {
     if (!this.pre || !this.pre.isConnected) return;
-    this.state.textContent = !masterUrl ? '' : isReady() ? 'Měření dokončeno' : 'Měření probíhá…';
-    this.pre.textContent = masterUrl ? reportMarkdown() : 'Načti stránku a zpráva se tady sestaví sama.';
+    this.state.textContent = !masterUrl ? '' : isReady() ? T('Měření dokončeno', 'Measurement finished') : T('Měření probíhá…', 'Measuring…');
+    this.pre.textContent = masterUrl ? reportMarkdown() : T('Načti stránku a zpráva se tady sestaví sama.', 'Load a page and the report builds itself here.');
   },
 };
 
@@ -1991,7 +2052,7 @@ function renderPaneChips() {
       togglePane(vp);
     }, {
       class: 'vp-' + vp, dot: true,
-      title: `Klik: zobrazit nebo skrýt (${i + 1}). Přetažením nebo Alt+šipkou změníš pořadí.`,
+      title: T(`Klik: zobrazit nebo skrýt (${i + 1}). Přetažením nebo Alt+šipkou změníš pořadí.`, `Click: show or hide (${i + 1}). Drag or use Alt+arrow to reorder.`),
     });
     chip.dataset.vp = vp;
     chip.classList.add('movable');
@@ -2056,12 +2117,12 @@ function setOrder(next, focusVp) {
   scheduleRender();
   const c = $(`#paneChips [data-vp="${focusVp}"]`);
   if (c) c.focus();
-  toast('Pořadí: ' + next.map((v) => VP_NAME[v]).join(', '));
+  toast(T('Pořadí: ', 'Order: ') + next.map((v) => VP_NAME[v]).join(', '));
 }
 
 function togglePane(vp) {
   const p = settings.panes[vp];
-  if (!p.hidden && visibleVps().length === 1) { toast('Aspoň jedna velikost musí zůstat zobrazená'); return; }
+  if (!p.hidden && visibleVps().length === 1) { toast(T('Aspoň jedna velikost musí zůstat zobrazená', 'At least one size must stay visible')); return; }
   p.hidden = !p.hidden;
   saveSettings();
   renderPaneChips();
@@ -2095,7 +2156,7 @@ function wireToolbar() {
   els.back.disabled = els.fwd.disabled = true;
   els.back.addEventListener('click', () => goHistory(-1));
   els.fwd.addEventListener('click', () => goHistory(1));
-  $('#shotAll').addEventListener('click', () => screenshot(els.stage, 'plocha'));
+  $('#shotAll').addEventListener('click', () => screenshot(els.stage, 'bench'));
   $('#dockHide').innerHTML = svg('close');
   $('#dockMin').addEventListener('click', () => setDockMode(settings.dockMode === 'min' ? 'open' : 'min'));
   $('#dockHide').addEventListener('click', () => setDockMode('hidden'));
@@ -2114,7 +2175,17 @@ function wireToolbar() {
       recreateFrame(vp);
       if (masterUrl && !settings.panes[vp].hidden) afterLayout(() => navigateFrame(vp, masterUrl, { force: true }));
     }
-    toast(settings.mobileUA ? 'Mobil a tablet teď hlásí JavaScriptu mobilní User-Agent' : 'Mobil a tablet teď hlásí výchozí User-Agent');
+    toast(settings.mobileUA ? T('Mobil a tablet teď hlásí JavaScriptu mobilní User-Agent', 'Mobile and tablet now report a mobile User-Agent to JavaScript') : T('Mobil a tablet teď hlásí výchozí User-Agent', 'Mobile and tablet now report the default User-Agent'));
+  });
+
+  // Language: remembered in localStorage (read before the first render) and applied by reloading.
+  const langSel = $('#lang');
+  let langStored = null;
+  try { langStored = localStorage.getItem('wtb-lang'); } catch (e) { /* storage blocked */ }
+  langSel.value = langStored === 'cs' || langStored === 'en' ? langStored : 'auto';
+  langSel.addEventListener('change', () => {
+    try { if (langSel.value === 'auto') localStorage.removeItem('wtb-lang'); else localStorage.setItem('wtb-lang', langSel.value); } catch (e) { /* storage blocked */ }
+    location.replace(location.pathname + (masterUrl ? '?url=' + encodeURIComponent(masterUrl) : ''));
   });
 
   for (const b of document.querySelectorAll('[data-overlay]')) {
@@ -2204,5 +2275,5 @@ exposeApi();
 initDone = init();
 initDone.catch((e) => {
   console.error(e);
-  document.body.prepend(h('div', { class: 'flag', style: { margin: '8px' } }, 'Panel se nepodařilo spustit: ' + e.message));
+  document.body.prepend(h('div', { class: 'flag', style: { margin: '8px' } }, T('Panel se nepodařilo spustit: ', 'The bench failed to start: ') + e.message));
 });

@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "Web Test Bench",
   "version": "1.0.0",
-  "description": "Testovací panel webu: tři velikosti obrazovky vedle sebe, chyby z konzole, síť, rychlost načítání, kontrola stránky a poznámky.",
+  "description": "__MSG_description__",
+  "default_locale": "en",
   "homepage_url": "https://github.com/petrzpav/web-test-bench",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Otestovat tuto stránku (Alt+Shift+T)",
+    "default_title": "__MSG_actionTitle__",
     "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png" }
   },
   "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },

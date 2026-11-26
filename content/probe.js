@@ -5,13 +5,15 @@
 (() => {
   const ao = location.ancestorOrigins;
   if (!ao || ao.length !== 1 || !ao[0].startsWith('chrome-extension://')) return;
-  const nameMatch = /^wt-(\w+)(-ua)?$/.exec(window.name);
+  // wt-<viewport>[-ua][-<lang>]: the dashboard passes the options in the frame name.
+  const nameMatch = /^wt-(mobile|tablet|desktop)(-ua)?(?:-(cs|en))?$/.exec(window.name);
   if (!nameMatch) return;
   if (window.__wtProbe) return;
   window.__wtProbe = true;
 
   const VP = nameMatch[1];
   const PARENT = ao[0];
+  const T = (cs, en) => (nameMatch[3] === 'cs' ? cs : en);
   // Budgets: errors and warnings are kept (a hard cap only stops runaway loops);
   // log/info are rate-limited per 10 s window so chatty pages cannot hide errors.
   const budget = { error: { max: 2000, used: 0 }, chatty: { max: 150, used: 0, windowStart: 0, dropped: 0 } };
@@ -53,8 +55,8 @@
       sw.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
       let told = false;
       sw.register = () => {
-        if (!told) { told = true; setTimeout(() => post('log', { level: 'warn', source: 'bench', message: 'Stránka registruje service worker, v náhledu je vypnutý. Pokud na něm stránka závisí, může se tu chovat jinak než v prohlížeči.' }), 0); }
-        const err = new DOMException('Service worker je ve Web Test Bench vypnutý.', 'SecurityError');
+        if (!told) { told = true; setTimeout(() => post('log', { level: 'warn', source: 'bench', message: T('Stránka registruje service worker, v náhledu je vypnutý. Pokud na něm stránka závisí, může se tu chovat jinak než v prohlížeči.', 'The page registers a service worker, which is disabled in the bench. If the page depends on it, it may behave differently here than in the browser.') }), 0); }
+        const err = new DOMException(T('Service worker je ve Web Test Bench vypnutý.', 'Service workers are disabled in Web Test Bench.'), 'SecurityError');
         err.__wtBench = true; // our own rejection: not reported as a page error
         return Promise.reject(err);
       };
@@ -134,13 +136,13 @@
     if (level === 'error' || level === 'warn') {
       const b = budget.error;
       if (b.used >= b.max) return false;
-      if (++b.used === b.max) post('log', { level: 'warn', source: 'bench', message: 'Web Test Bench: stránka vypsala ' + b.max + ' chyb a varování, další se už nezaznamenávají.' });
+      if (++b.used === b.max) post('log', { level: 'warn', source: 'bench', message: T('Web Test Bench: stránka vypsala ' + b.max + ' chyb a varování, další se už nezaznamenávají.', 'Web Test Bench: the page logged ' + b.max + ' errors and warnings; further ones are not recorded.') });
       return true;
     }
     const b = budget.chatty;
     const now = Date.now();
     if (now - b.windowStart > 10000) {
-      if (b.dropped) post('log', { level: 'info', source: 'bench', message: 'Web Test Bench: vynecháno ' + b.dropped + ' výpisů console.log/info (víc než ' + b.max + ' za 10 s).' });
+      if (b.dropped) post('log', { level: 'info', source: 'bench', message: T('Web Test Bench: vynecháno ' + b.dropped + ' výpisů console.log/info (víc než ' + b.max + ' za 10 s).', 'Web Test Bench: skipped ' + b.dropped + ' console.log/info messages (more than ' + b.max + ' in 10 s).') });
       b.windowStart = now; b.used = 0; b.dropped = 0;
     }
     if (b.used >= b.max) { b.dropped++; return false; }
@@ -179,11 +181,11 @@
     const t = e.target;
     if (t && t !== window && t.nodeType === 1) {
       const url = t.currentSrc || t.src || t.href || '';
-      report('error', 'Nepodařilo se načíst <' + t.tagName.toLowerCase() + '> ' + url, { source: 'resource', resourceUrl: url, selector: describeNode(t) });
+      report('error', T('Nepodařilo se načíst <', 'Failed to load <') + t.tagName.toLowerCase() + '> ' + url, { source: 'resource', resourceUrl: url, selector: describeNode(t) });
       return;
     }
     const where = e.filename ? e.filename + ':' + e.lineno + ':' + e.colno : '';
-    report('error', e.message || 'Neznámá chyba skriptu', {
+    report('error', e.message || T('Neznámá chyba skriptu', 'Unknown script error'), {
       source: 'exception',
       stack: (e.error && e.error.stack) || (where ? '    at ' + where : ''),
       where,
@@ -193,14 +195,14 @@
   window.addEventListener('unhandledrejection', (e) => {
     const r = e.reason;
     if (r && r.__wtBench) return;
-    report('error', 'Nezachycené odmítnutí Promise: ' + (r instanceof Error ? r.name + ': ' + r.message : fmt(r)), {
+    report('error', T('Nezachycené odmítnutí Promise: ', 'Unhandled Promise rejection: ') + (r instanceof Error ? r.name + ': ' + r.message : fmt(r)), {
       source: 'promise',
       stack: (r && r.stack) || '',
     });
   });
 
   document.addEventListener('securitypolicyviolation', (e) => {
-    report('error', 'CSP zablokovala ' + (e.blockedURI || 'zdroj') + ' (direktiva ' + e.violatedDirective + ')', { source: 'csp' });
+    report('error', T('CSP zablokovala ', 'CSP blocked ') + (e.blockedURI || T('zdroj', 'a resource')) + T(' (direktiva ', ' (directive ') + e.violatedDirective + ')', { source: 'csp' });
   });
 
   // Dialogs do not block inside the sandboxed frame; log them so they are not missed.
@@ -221,7 +223,7 @@
         if (!res.ok && res.type !== 'opaque' && res.type !== 'opaqueredirect') report('warn', 'fetch ' + res.status + ' ' + url, { source: 'fetch', resourceUrl: url });
         return res;
       }, (err) => {
-        if (!(err && err.name === 'AbortError')) report('error', 'fetch selhal: ' + url + ' (' + (err && err.message) + ')', { source: 'fetch', resourceUrl: url });
+        if (!(err && err.name === 'AbortError')) report('error', T('fetch selhal: ', 'fetch failed: ') + url + ' (' + (err && err.message) + ')', { source: 'fetch', resourceUrl: url });
         throw err;
       });
     };
@@ -229,7 +231,7 @@
   const xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     this.__wtUrl = String(url);
-    this.addEventListener('error', () => report('error', 'XHR selhal: ' + method + ' ' + this.__wtUrl, { source: 'fetch', resourceUrl: this.__wtUrl }));
+    this.addEventListener('error', () => report('error', T('XHR selhal: ', 'XHR failed: ') + method + ' ' + this.__wtUrl, { source: 'fetch', resourceUrl: this.__wtUrl }));
     this.addEventListener('load', () => { if (this.status >= 400) report('warn', 'XHR ' + this.status + ' ' + this.__wtUrl, { source: 'fetch', resourceUrl: this.__wtUrl }); });
     return xhrOpen.apply(this, arguments);
   };
@@ -597,7 +599,7 @@
       for (const el of offenders) {
         if (offenders.has(el.parentElement)) continue;
         const r = el.getBoundingClientRect();
-        overflow.push(item(el, Math.round(r.width) + ' px široký, přesah ' + Math.round(Math.max(r.right - cw, -r.left)) + ' px'));
+        overflow.push(item(el, Math.round(r.width) + T(' px široký, přesah ', ' px wide, overflows by ') + Math.round(Math.max(r.right - cw, -r.left)) + ' px'));
         if (overflow.length >= 40) break;
       }
     }
@@ -630,7 +632,7 @@
       if (img.complete && img.naturalWidth === 0 && (img.currentSrc || img.src)) broken.push(item(img, img.currentSrc || img.src));
       const r = img.getBoundingClientRect();
       if (img.naturalWidth && r.width > 0 && img.naturalWidth > r.width * 2.5 && img.naturalWidth > 600) {
-        oversized.push(item(img, img.naturalWidth + ' px zdroj pro ' + Math.round(r.width) + ' px zobrazení'));
+        oversized.push(item(img, img.naturalWidth + T(' px zdroj pro ', ' px source for ') + Math.round(r.width) + T(' px zobrazení', ' px displayed')));
       }
     }
 
@@ -639,17 +641,17 @@
     for (const f of document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]), select, textarea')) {
       const hasLabel = (f.id && document.querySelector('label[for="' + CSS.escape(f.id) + '"]')) || f.closest('label') ||
         f.getAttribute('aria-label') || f.getAttribute('aria-labelledby') || f.getAttribute('title');
-      if (!hasLabel) unlabeled.push(item(f, f.getAttribute('placeholder') ? 'jen placeholder: „' + f.getAttribute('placeholder') + '“' : (f.type || f.tagName.toLowerCase())));
+      if (!hasLabel) unlabeled.push(item(f, f.getAttribute('placeholder') ? T('jen placeholder: „', 'placeholder only: “') + f.getAttribute('placeholder') + T('“', '”') : (f.type || f.tagName.toLowerCase())));
     }
 
     // Links and buttons without an accessible name; suspicious hrefs.
     const nameless = [], badHref = [];
     for (const el of document.querySelectorAll('a[href], button, [role="button"]')) {
       if (!isVisible(el)) continue;
-      if (!accessibleName(el)) nameless.push(item(el, el.tagName === 'A' ? el.getAttribute('href') : 'tlačítko'));
+      if (!accessibleName(el)) nameless.push(item(el, el.tagName === 'A' ? el.getAttribute('href') : T('tlačítko', 'button')));
       if (el.tagName === 'A') {
         const h = el.getAttribute('href');
-        if (h === '#' || /^javascript:/i.test(h) || h === '') badHref.push(item(el, h || '(prázdný)'));
+        if (h === '#' || /^javascript:/i.test(h) || h === '') badHref.push(item(el, h || T('(prázdný)', '(empty)')));
       }
     }
 
@@ -765,7 +767,7 @@
   const highlight = (ref) => {
     const w = refs.get(ref);
     const el = w && w.deref();
-    if (!el || !el.isConnected) { post('log', { level: 'info', source: 'bench', message: 'Web Test Bench: prvek už na stránce není, spusť kontrolu znovu.' }); return; }
+    if (!el || !el.isConnected) { post('log', { level: 'info', source: 'bench', message: T('Web Test Bench: prvek už na stránce není, spusť kontrolu znovu.', 'Web Test Bench: the element is no longer on the page; run the check again.') }); return; }
     setStyle('flash', true);
     document.querySelectorAll('[data-wt-flash]').forEach((n) => n.removeAttribute('data-wt-flash'));
     el.setAttribute('data-wt-flash', '');

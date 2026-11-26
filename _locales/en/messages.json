@@ -1,0 +1,4 @@
+{
+  "description": { "message": "Test a web page at mobile, tablet and desktop size at once: console errors, network, load speed, a page check and notes." },
+  "actionTitle": { "message": "Test this page (Alt+Shift+T)" }
+}

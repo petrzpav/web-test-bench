@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,77 +7,85 @@
   <link rel="icon" href="icons/32.png">
   <link rel="stylesheet" href="dashboard.css">
 </head>
+<!-- Texts are English; data-cs* attributes hold the Czech version, applied by dashboard.js. -->
 <body>
   <header class="bar">
     <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Web Test Bench</div>
 
     <form class="urlform" id="urlForm" autocomplete="off">
-      <button type="button" class="btn icon" id="backBtn" title="Zpět ve všech rámech" aria-label="Zpět"></button>
-      <button type="button" class="btn icon" id="fwdBtn" title="Vpřed ve všech rámech" aria-label="Vpřed"></button>
-      <input class="field" id="url" list="history" placeholder="Adresa stránky, např. https://example.com" spellcheck="false" aria-label="Adresa stránky">
+      <button type="button" class="btn icon" id="backBtn" title="Back in all frames" aria-label="Back" data-cs-title="Zpět ve všech rámech" data-cs-aria-label="Zpět"></button>
+      <button type="button" class="btn icon" id="fwdBtn" title="Forward in all frames" aria-label="Forward" data-cs-title="Vpřed ve všech rámech" data-cs-aria-label="Vpřed"></button>
+      <input class="field" id="url" list="history" placeholder="Page address, e.g. https://example.com" spellcheck="false" aria-label="Page address" data-cs-placeholder="Adresa stránky, např. https://example.com" data-cs-aria-label="Adresa stránky">
       <datalist id="history"></datalist>
-      <button type="submit" class="btn primary">Načíst</button>
-      <button type="button" class="btn icon" id="reloadBtn" title="Načíst znovu všechny rámy (R)" aria-label="Načíst znovu"></button>
+      <button type="submit" class="btn primary" data-cs="Načíst">Load</button>
+      <button type="button" class="btn icon" id="reloadBtn" title="Reload all frames (R)" aria-label="Reload" data-cs-title="Načíst znovu všechny rámy (R)" data-cs-aria-label="Načíst znovu"></button>
     </form>
 
     <div class="bar-right">
-      <div class="seg" id="paneChips" role="group" aria-label="Zobrazené velikosti"></div>
+      <div class="seg" id="paneChips" role="group" aria-label="Shown sizes" data-cs-aria-label="Zobrazené velikosti"></div>
       <span class="sep"></span>
-      <label class="switch" title="Posun stránky v jednom rámu posune i ostatní"><input type="checkbox" id="syncScroll"> Spojit posun</label>
-      <label class="switch" title="Kliknutí na odkaz v jednom rámu otevře stejnou adresu i v ostatních"><input type="checkbox" id="syncNav"> Spojit navigaci</label>
+      <label class="switch" title="Scrolling one frame scrolls the others to the same content" data-cs-title="Posun stránky v jednom rámu posune i ostatní"><input type="checkbox" id="syncScroll"> <span data-cs="Spojit posun">Link scrolling</span></label>
+      <label class="switch" title="A link clicked in one frame opens in the others too" data-cs-title="Kliknutí na odkaz v jednom rámu otevře stejnou adresu i v ostatních"><input type="checkbox" id="syncNav"> <span data-cs="Spojit navigaci">Link navigation</span></label>
       <span class="sep"></span>
-      <div class="seg" role="group" aria-label="Zvýraznit ve stránce">
-        <span class="seg-label">Zvýraznit</span>
-        <button type="button" class="chip" data-overlay="outline" aria-pressed="false" title="Obrys kolem každého prvku – ukáže rozložení a okraje">Obrysy</button>
-        <button type="button" class="chip" data-overlay="overflow" aria-pressed="false" title="Prvky, které přesahují šířku obrazovky a způsobují vodorovný posun">Přetečení</button>
-        <button type="button" class="chip" data-overlay="a11y" aria-pressed="false" title="Obrázky bez alt, pole bez popisku, odkazy a tlačítka bez textu">Přístupnost</button>
+      <div class="seg" role="group" aria-label="Highlight in the page" data-cs-aria-label="Zvýraznit ve stránce">
+        <span class="seg-label" data-cs="Zvýraznit">Highlight</span>
+        <button type="button" class="chip" data-overlay="outline" aria-pressed="false" title="An outline around every element – shows layout and spacing" data-cs-title="Obrys kolem každého prvku – ukáže rozložení a okraje" data-cs="Obrysy">Outlines</button>
+        <button type="button" class="chip" data-overlay="overflow" aria-pressed="false" title="Elements wider than the screen that cause horizontal scrolling" data-cs-title="Prvky, které přesahují šířku obrazovky a způsobují vodorovný posun" data-cs="Přetečení">Overflow</button>
+        <button type="button" class="chip" data-overlay="a11y" aria-pressed="false" title="Images without alt, fields without a label, links and buttons without text" data-cs-title="Obrázky bez alt, pole bez popisku, odkazy a tlačítka bez textu" data-cs="Přístupnost">Accessibility</button>
       </div>
       <span class="sep"></span>
-      <select class="field" id="zoom" aria-label="Měřítko" title="Měřítko náhledů">
-        <option value="fit">Přizpůsobit</option>
+      <select class="field" id="zoom" aria-label="Zoom" title="Preview zoom" data-cs-aria-label="Měřítko" data-cs-title="Měřítko náhledů">
+        <option value="fit" data-cs="Přizpůsobit">Fit</option>
         <option value="0.5">50 %</option>
         <option value="0.75">75 %</option>
         <option value="1">100 %</option>
       </select>
-      <button type="button" class="btn icon" id="shotAll" title="Uložit snímek celé plochy" aria-label="Snímek plochy"></button>
-      <button type="button" class="btn icon" id="settingsBtn" title="Nastavení a nápověda" aria-label="Nastavení" aria-expanded="false" aria-controls="settings"></button>
+      <button type="button" class="btn icon" id="shotAll" title="Save a screenshot of the whole bench" aria-label="Screenshot of the bench" data-cs-title="Uložit snímek celé plochy" data-cs-aria-label="Snímek plochy"></button>
+      <button type="button" class="btn icon" id="settingsBtn" title="Settings and help" aria-label="Settings" aria-expanded="false" aria-controls="settings" data-cs-title="Nastavení a nápověda" data-cs-aria-label="Nastavení"></button>
     </div>
 
     <div class="popover" id="settings" hidden>
-      <h3>Nastavení</h3>
-      <label class="switch"><input type="checkbox" id="mobileUA"> Mobilní User-Agent pro JavaScript (mobil a tablet)</label>
-      <label class="switch"><input type="checkbox" id="keepLog"> Uchovat záznamy konzole a sítě při navigaci</label>
-      <h3 style="margin-top:12px">Co rámy umí a co ne</h3>
+      <h3 data-cs="Nastavení">Settings</h3>
+      <label class="lang-row"><span>Language / Jazyk</span>
+        <select class="field" id="lang">
+          <option value="auto" data-cs="Podle prohlížeče">Browser language</option>
+          <option value="en">English</option>
+          <option value="cs">Čeština</option>
+        </select>
+      </label>
+      <label class="switch"><input type="checkbox" id="mobileUA"> <span data-cs="Mobilní User-Agent pro JavaScript (mobil a tablet)">Mobile User-Agent for JavaScript (mobile and tablet)</span></label>
+      <label class="switch"><input type="checkbox" id="keepLog"> <span data-cs="Uchovat záznamy konzole a sítě při navigaci">Keep console and network entries when navigating</span></label>
+      <h3 style="margin-top:12px" data-cs="Co rámy umí a co ne">What the frames can and cannot do</h3>
       <ul>
-        <li>Simulují šířku a výšku obrazovky, tedy CSS breakpointy a rozložení.</li>
-        <li>Nemění User-Agent posílaný serveru, hustotu pixelů ani dotykové události. Pro ty použij režim zařízení v DevTools.</li>
-        <li>Aby šlo vložit každý web, panel v rámech odstraňuje hlavičky <code>X-Frame-Options</code> a <code>Content-Security-Policy</code>. Chyby CSP proto neuvidíš. Platí jen pro tuto záložku.</li>
-        <li>Rámy běží jako vložený obsah jiného webu. Server dostane všechny cookies, takže přihlášení funguje, ale JavaScript stránky vidí jen cookies <code>SameSite=None</code> a nové si nastavit nemůže. Cookie lišta se proto může vracet.</li>
-        <li>Service workery jsou v rámech vypnuté, aby stránka šla vždy načíst znovu.</li>
-        <li>Mobil a tablet mají překryvné posuvníky jako telefon, desktop klasické.</li>
-        <li>Všechny tři rámy se načítají naráz a dělí se o síť. Přesnější čísla dá Výkon → Změřit znovu, které načte jen jeden rám.</li>
+        <li data-cs="Simulují šířku a výšku obrazovky, tedy CSS breakpointy a rozložení.">They emulate the screen width and height, so CSS breakpoints and layout.</li>
+        <li data-cs="Nemění User-Agent posílaný serveru, hustotu pixelů ani dotykové události. Pro ty použij režim zařízení v DevTools.">They do not change the User-Agent sent to the server, the pixel density or touch events. Use the DevTools device mode for those.</li>
+        <li data-cs-html="Aby šlo vložit každý web, panel v rámech odstraňuje hlavičky &lt;code&gt;X-Frame-Options&lt;/code&gt; a &lt;code&gt;Content-Security-Policy&lt;/code&gt;. Chyby CSP proto neuvidíš. Platí jen pro tuto záložku.">To frame any site, the bench removes the <code>X-Frame-Options</code> and <code>Content-Security-Policy</code> headers in its frames. You will therefore not see CSP errors. This applies only to this tab.</li>
+        <li data-cs-html="Rámy běží jako vložený obsah jiného webu. Server dostane všechny cookies, takže přihlášení funguje, ale JavaScript stránky vidí jen cookies &lt;code&gt;SameSite=None&lt;/code&gt; a nové si nastavit nemůže. Cookie lišta se proto může vracet.">The frames run as content embedded in another site. The server gets all cookies, so logins work, but the page's JavaScript only sees <code>SameSite=None</code> cookies and cannot set new ones. A cookie banner may therefore keep coming back.</li>
+        <li data-cs="Service workery jsou v rámech vypnuté, aby stránka šla vždy načíst znovu.">Service workers are disabled in the frames so the page can always be reloaded.</li>
+        <li data-cs="Mobil a tablet mají překryvné posuvníky jako telefon, desktop klasické.">Mobile and tablet have overlay scrollbars like a phone, desktop has classic ones.</li>
+        <li data-cs="Všechny tři rámy se načítají naráz a dělí se o síť. Přesnější čísla dá Výkon → Změřit znovu, které načte jen jeden rám.">All three frames load at once and share the network. Performance → Measure again loads a single frame for more exact numbers.</li>
       </ul>
-      <h3>Klávesy</h3>
-      <p><kbd>/</kbd> adresa &nbsp; <kbd>R</kbd> načíst znovu &nbsp; <kbd>1</kbd>–<kbd>3</kbd> skrýt nebo ukázat rám &nbsp; <kbd>D</kbd> lišta výsledků &nbsp; <kbd>Esc</kbd> zavřít</p>
+      <h3 data-cs="Klávesy">Keys</h3>
+      <p data-cs-html="&lt;kbd&gt;/&lt;/kbd&gt; adresa &amp;nbsp; &lt;kbd&gt;R&lt;/kbd&gt; načíst znovu &amp;nbsp; &lt;kbd&gt;1&lt;/kbd&gt;–&lt;kbd&gt;3&lt;/kbd&gt; skrýt nebo ukázat rám &amp;nbsp; &lt;kbd&gt;D&lt;/kbd&gt; lišta výsledků &amp;nbsp; &lt;kbd&gt;Esc&lt;/kbd&gt; zavřít"><kbd>/</kbd> address &nbsp; <kbd>R</kbd> reload &nbsp; <kbd>1</kbd>–<kbd>3</kbd> hide or show a frame &nbsp; <kbd>D</kbd> results panel &nbsp; <kbd>Esc</kbd> close</p>
     </div>
   </header>
 
-  <main class="stage" id="stage" aria-label="Náhledy"></main>
+  <main class="stage" id="stage" aria-label="Previews" data-cs-aria-label="Náhledy"></main>
 
-  <div class="resizer" id="resizer" role="separator" aria-orientation="horizontal" aria-label="Změnit výšku panelu" tabindex="0"></div>
+  <div class="resizer" id="resizer" role="separator" aria-orientation="horizontal" aria-label="Resize the panel" data-cs-aria-label="Změnit výšku panelu" tabindex="0"></div>
 
-  <section class="dock" id="dock" aria-label="Výsledky testu">
+  <section class="dock" id="dock" aria-label="Test results" data-cs-aria-label="Výsledky testu">
     <div class="dock-head">
-      <nav class="tabs" role="tablist" id="tabs" aria-label="Výsledky"></nav>
+      <nav class="tabs" role="tablist" id="tabs" aria-label="Results" data-cs-aria-label="Výsledky"></nav>
       <div class="dock-ctl">
-        <button type="button" class="ibtn" id="dockMin" title="Minimalizovat lištu (D)" aria-label="Minimalizovat lištu"></button>
-        <button type="button" class="ibtn" id="dockHide" title="Skrýt lištu do rohu" aria-label="Skrýt lištu"></button>
+        <button type="button" class="ibtn" id="dockMin" title="Minimise the panel (D)" aria-label="Minimise the panel" data-cs-title="Minimalizovat lištu (D)" data-cs-aria-label="Minimalizovat lištu"></button>
+        <button type="button" class="ibtn" id="dockHide" title="Hide the panel in the corner" aria-label="Hide the panel" data-cs-title="Skrýt lištu do rohu" data-cs-aria-label="Skrýt lištu"></button>
       </div>
     </div>
     <div class="tabpanel" id="panel" role="tabpanel"></div>
   </section>
-  <button type="button" class="dock-fab" id="dockFab" hidden title="Zobrazit lištu s výsledky (D)" aria-label="Zobrazit lištu s výsledky">
-    <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Výsledky<span class="fab-count" id="fabCount"></span>
+  <button type="button" class="dock-fab" id="dockFab" hidden title="Show the results panel (D)" aria-label="Show the results panel" data-cs-title="Zobrazit lištu s výsledky (D)" data-cs-aria-label="Zobrazit lištu s výsledky">
+    <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span data-cs="Výsledky">Results</span><span class="fab-count" id="fabCount"></span>
   </button>
 
   <script src="dashboard.js" type="module"></script>

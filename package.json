@@ -8,6 +8,6 @@
   "homepage": "https://github.com/petrzpav/web-test-bench",
   "type": "module",
   "bin": { "wtb": "tools/wtb.mjs" },
-  "scripts": { "report": "node tools/wtb.mjs" },
+  "scripts": { "report": "node tools/wtb.mjs", "test": "node tools/smoke.mjs" },
   "dependencies": { "playwright-core": "1.57.0" }
 }

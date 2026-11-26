@@ -4,7 +4,7 @@
 (() => {
   const ao = location.ancestorOrigins;
   if (!ao || ao.length !== 1 || ao[0] !== 'chrome-extension://' + chrome.runtime.id) return;
-  const m = /^wt-(\w+)/.exec(window.name);
+  const m = /^wt-(mobile|tablet|desktop)(?:-ua)?(?:-(?:cs|en))?$/.exec(window.name);
   if (!m) return;
   chrome.runtime.sendMessage({ type: 'wt-hello', vp: m[1], url: location.href }).catch(() => {});
 })();

@@ -1,0 +1,4 @@
+{
+  "description": { "message": "Testovací panel webu: tři velikosti obrazovky vedle sebe, chyby z konzole, síť, rychlost načítání, kontrola stránky a poznámky." },
+  "actionTitle": { "message": "Otestovat tuto stránku (Alt+Shift+T)" }
+}
